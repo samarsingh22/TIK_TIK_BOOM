@@ -185,6 +185,7 @@ hr {
 }
 
 .hero-section {
+  position: relative;
   z-index: 10;
   margin-bottom: 4rem;
 }
@@ -270,6 +271,7 @@ hr {
   gap: 2rem;
   max-width: 1200px;
   width: 100%;
+  position: relative;
   z-index: 10;
 }
 

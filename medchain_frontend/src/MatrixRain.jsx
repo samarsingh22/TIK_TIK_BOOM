@@ -69,8 +69,8 @@ const MatrixRain = () => {
                 left: 0,
                 width: '100%',
                 height: '100%',
-                zIndex: -1, // Keep behind everything
-                opacity: 0.3, // Subtle enough not to distract from UI
+                zIndex: 2, // Keep right at the base layer above body
+                opacity: 0.8, // Enhanced visibility
                 pointerEvents: 'none' // Don't block clicks
             }}
         />
