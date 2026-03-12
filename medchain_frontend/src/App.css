@@ -17,7 +17,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 clamp(24px, 5vw, 120px);
-  background: rgba(247, 247, 247, 0.8);
+  background: rgba(251, 54, 64, 0.8);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
@@ -80,7 +80,7 @@
 }
 
 .btn-primary:hover {
-  background: #333;
+  background: #1a1a1a;
   transform: translateY(-1px);
 }
 
@@ -101,7 +101,7 @@
 }
 
 .btn-secondary:hover {
-  background: #f0f0f0;
+  background: #fd6b71;
   transform: translateY(-1px);
 }
 
@@ -405,7 +405,7 @@
 }
 
 .card-btn:hover:not(:disabled) {
-  background: #333;
+  background: #1a1a1a;
   transform: translateY(-1px);
 }
 
@@ -589,7 +589,7 @@
 }
 
 .doc-section.bg-alt {
-  background: var(--white);
+  background: #fc4f57;
 }
 
 .doc-container {
@@ -1212,7 +1212,7 @@
 }
 
 .docs-code-block {
-  background: #1a1a1a;
+  background: #000F08;
   border-radius: 8px;
   overflow: hidden;
   margin: 16px 0;
@@ -1223,9 +1223,9 @@
   align-items: center;
   gap: 6px;
   padding: 10px 16px;
-  background: #222;
+  background: #1a1a1a;
   font-size: 0.8rem;
-  color: #a3a3a3;
+  color: #fd6b71;
 }
 
 .docs-code-block code,
@@ -1615,7 +1615,7 @@
   font-size: 1.6rem;
   font-weight: 800;
   letter-spacing: -0.04em;
-  color: #e5e5e5;
+  color: #e65a5e;
   flex-shrink: 0;
   min-width: 40px;
 }

@@ -248,8 +248,8 @@ function Dashboard() {
                                     <QRCodeCanvas
                                         value={JSON.stringify({ BatchID: lastCreatedBatch.batchId, Product: lastCreatedBatch.drugName, Mfg: lastCreatedBatch.mfgDate, Exp: lastCreatedBatch.expDate }, null, 2)}
                                         size={80}
-                                        fgColor="#000"
-                                        bgColor="#fff"
+                                        fgColor="#000F08"
+                                        bgColor="#FB3640"
                                     />
                                     <div>
                                         <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>QR Tag Generated</div>
@@ -316,7 +316,7 @@ function Dashboard() {
                                             <QRCodeCanvas
                                                 value={JSON.stringify({ BatchID: batchData.batchId, Product: batchData.drugName, Mfg: batchData.mfgDate, Exp: batchData.expDate, Status: batchData.recalled ? 'Recalled' : 'Verified' }, null, 2)}
                                                 size={80}
-                                                fgColor="#000"
+                                                fgColor="#000F08"
                                                 bgColor="transparent"
                                             />
                                             <div>
