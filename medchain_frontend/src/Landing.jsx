@@ -42,7 +42,7 @@ function ParticleGlobe() {
                     itemSize={3}
                 />
             </bufferGeometry>
-            <pointsMaterial size={0.03} color="#FB3640" transparent opacity={0.8} sizeAttenuation />
+            <pointsMaterial size={0.04} color="#381932" transparent opacity={0.6} sizeAttenuation />
         </points>
     );
 }

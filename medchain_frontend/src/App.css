@@ -17,7 +17,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 clamp(24px, 5vw, 120px);
-  background: rgba(0, 15, 8, 0.8);
+  background: rgba(255, 243, 230, 0.85);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
@@ -80,7 +80,7 @@
 }
 
 .btn-primary:hover {
-  background: #cc2c34;
+  background: #4F2345;
   transform: translateY(-1px);
 }
 
@@ -101,7 +101,7 @@
 }
 
 .btn-secondary:hover {
-  background: #1a1a1a;
+  background: #F5E8DC;
   transform: translateY(-1px);
 }
 
@@ -203,7 +203,7 @@
 
 .metric-brand {
   font-size: 0.7rem;
-  color: #aaa;
+  color: #A68E8B;
   margin-top: 4px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -260,7 +260,7 @@
 }
 
 .toolbar-left select:focus {
-  border-color: #aaa;
+  border-color: #9C7D7B;
 }
 
 .network-badge {
@@ -275,7 +275,7 @@
   width: 8px;
   height: 8px;
   border-radius: 999px;
-  background: #ccc;
+  background: #D9C5BF;
 }
 
 .network-dot.active {
@@ -303,8 +303,8 @@
 }
 
 .action-card:hover {
-  border-color: #ccc;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+  border-color: #9C7D7B;
+  box-shadow: 0 4px 20px rgba(56, 25, 50, 0.08);
 }
 
 .action-card.danger {
@@ -405,7 +405,7 @@
 }
 
 .card-btn:hover:not(:disabled) {
-  background: #cc2c34;
+  background: #4F2345;
   transform: translateY(-1px);
 }
 
@@ -589,7 +589,7 @@
 }
 
 .doc-section.bg-alt {
-  background: #050505;
+  background: var(--white);
 }
 
 .doc-container {
@@ -1212,11 +1212,10 @@
 }
 
 .docs-code-block {
-  background: #0a0a0a;
+  background: #1a1a1a;
   border-radius: 8px;
   overflow: hidden;
   margin: 16px 0;
-  border: 1px solid #1a1a1a;
 }
 
 .code-header {
@@ -1224,9 +1223,9 @@
   align-items: center;
   gap: 6px;
   padding: 10px 16px;
-  background: #1a1a1a;
+  background: #222;
   font-size: 0.8rem;
-  color: #FB3640;
+  color: #a3a3a3;
 }
 
 .docs-code-block code,
@@ -1541,8 +1540,8 @@
 }
 
 .docs-industry-card:hover {
-  border-color: #ccc;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  border-color: #9C7D7B;
+  box-shadow: 0 4px 16px rgba(56, 25, 50, 0.04);
 }
 
 .di-header {
@@ -1616,7 +1615,7 @@
   font-size: 1.6rem;
   font-weight: 800;
   letter-spacing: -0.04em;
-  color: #1a1a1a;
+  color: #e5e5e5;
   flex-shrink: 0;
   min-width: 40px;
 }

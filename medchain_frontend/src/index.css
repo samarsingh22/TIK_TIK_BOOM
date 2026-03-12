@@ -9,11 +9,11 @@
 }
 
 :root {
-  --bg: #000F08;
-  --text: #FB3640;
-  --text-secondary: #cc2c34;
-  --border: #1a1a1a;
-  --white: #000F08;
+  --bg: #fff8f1;
+  --text: #381932;
+  --text-secondary: #6B5B69;
+  --border: #E8DAD4;
+  --white: #fff8f1;
 
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   line-height: 1.5;
