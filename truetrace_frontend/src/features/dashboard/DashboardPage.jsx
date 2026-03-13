@@ -376,7 +376,19 @@ function DashboardPage({ initialRole = ROLES.CONSUMER, lockRole = false, bottomC
               </div>
 
               <QRScanner
-                onVerified={(result) => setScannedBatchData(result)}
+                onVerified={(result) => {
+                  setScannedBatchData(result);
+                  if (result?.batchId) {
+                    const payload = buildQrPayload(result);
+                    // Extract relative path from full URL
+                    try {
+                      const url = new URL(payload);
+                      navigate(url.pathname + url.search);
+                    } catch {
+                      navigate(`/verify/${encodeURIComponent(result.batchId)}`);
+                    }
+                  }
+                }}
                 onError={() => setScannedBatchData(null)}
                 onScanLogged={refreshRecentScanEvents}
               />
@@ -385,7 +397,23 @@ function DashboardPage({ initialRole = ROLES.CONSUMER, lockRole = false, bottomC
                 <input placeholder="Enter Batch ID or QR JSON" value={form.verifyId} onChange={(e) => setField("verifyId", e.target.value)} />
               </div>
               <div className="card-footer">
-                <button className="card-btn" onClick={verifyBatch} disabled={loading}>
+                <button
+                  className="card-btn"
+                  disabled={loading || !form.verifyId.trim()}
+                  onClick={() => {
+                    const id = form.verifyId.trim();
+                    if (!id) return;
+                    // Build URL with data param if we have consumerBatchData for this id
+                    const dataPayload = JSON.stringify({
+                      BatchID: id,
+                      Product: consumerBatchData?.productName || "",
+                      Mfg: consumerBatchData?.mfgDate || "",
+                      Exp: consumerBatchData?.expDate || "",
+                      Status: consumerBatchData?.recalled ? "Recalled" : "Verified",
+                    });
+                    navigate(`/verify/${encodeURIComponent(id)}?data=${encodeURIComponent(dataPayload)}`);
+                  }}
+                >
                   {loading ? "Scanning..." : "Verify"} <Shield size={14} />
                 </button>
               </div>

@@ -12,6 +12,7 @@ import AnalyticsDashboard from "./analytics/AnalyticsDashboard";
 import Docs from "./Docs";
 import ProtectedRoute from "./components/ProtectedRoute";
 import RoleDashboardRedirect from "./components/RoleDashboardRedirect";
+import VerifyPage from "./pages/VerifyPage";
 import FloatingChatbot from "./components/FloatingChatbot";
 import "./App.css";
 
@@ -22,6 +23,7 @@ function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<AuthPage />} />
         <Route path="/dashboard" element={<RoleDashboardRedirect />} />
+        <Route path="/verify/:batchId" element={<VerifyPage />} />
 
         <Route
           path="/register-batch"

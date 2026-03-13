@@ -5,21 +5,10 @@ import { calculateTrustScore } from "../ai/trustScore";
 import { detectAnomalies } from "../ai/anomalyDetection";
 import { getBatchScanEvents, getCurrentLocation, logScanEvent, readScanEvents } from "../ai/scanLogger";
 import { upsertTrackedBatch } from "../services/batchStore";
+import { resolveBatchIdFromInput } from "../services/qrVerification";
 
 function extractBatchId(rawValue) {
-  const value = (rawValue || "").trim();
-  if (!value) return "";
-
-  try {
-    const parsed = JSON.parse(value);
-    if (parsed.batchId) return String(parsed.batchId).trim();
-    if (parsed.batchID) return String(parsed.batchID).trim();
-    if (parsed.id) return String(parsed.id).trim();
-  } catch {
-    return value;
-  }
-
-  return value;
+  return resolveBatchIdFromInput(rawValue);
 }
 
 export default function QRScanner({ onVerified, onError, onScanLogged }) {
