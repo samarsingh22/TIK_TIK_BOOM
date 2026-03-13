@@ -1,4 +1,5 @@
 const SCAN_LOG_STORAGE_KEY = "sentinelchain.ai.scan.events.v1";
+const LEGACY_SCAN_LOG_STORAGE_KEY = "True Trace.ai.scan.events.v1";
 
 function normalizeStoredEvent(event) {
   return {
@@ -18,10 +19,25 @@ function withLegacyBatchId(event) {
 
 function readRawEvents() {
   try {
-    const raw = localStorage.getItem(SCAN_LOG_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.map(normalizeStoredEvent).filter((event) => event.batchId) : [];
+    const currentRaw = localStorage.getItem(SCAN_LOG_STORAGE_KEY);
+    const legacyRaw = localStorage.getItem(LEGACY_SCAN_LOG_STORAGE_KEY);
+
+    const parsedCurrent = currentRaw ? JSON.parse(currentRaw) : [];
+    const parsedLegacy = legacyRaw ? JSON.parse(legacyRaw) : [];
+    const merged = [...(Array.isArray(parsedCurrent) ? parsedCurrent : []), ...(Array.isArray(parsedLegacy) ? parsedLegacy : [])]
+      .map(normalizeStoredEvent)
+      .filter((event) => event.batchId);
+
+    const deduped = [];
+    const seen = new Set();
+    merged.forEach((event) => {
+      const key = `${event.batchId}::${event.location}::${event.role}::${event.timestamp}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      deduped.push(event);
+    });
+
+    return deduped;
   } catch {
     return [];
   }
@@ -29,6 +45,7 @@ function readRawEvents() {
 
 function writeRawEvents(events) {
   localStorage.setItem(SCAN_LOG_STORAGE_KEY, JSON.stringify(events));
+  localStorage.setItem(LEGACY_SCAN_LOG_STORAGE_KEY, JSON.stringify(events));
 }
 
 export function getCurrentLocation() {

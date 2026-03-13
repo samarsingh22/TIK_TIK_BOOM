@@ -1,11 +1,26 @@
 const BATCHES_KEY = "True Trace.batches.v1";
+const LEGACY_BATCH_KEYS = ["sentinelchain.batches.v1", "sentinelchain.tracked.batches.v1"];
 
 function readBatches() {
   try {
     const raw = localStorage.getItem(BATCHES_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    const parsed = raw ? JSON.parse(raw) : [];
+
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return parsed;
+    }
+
+    for (const key of LEGACY_BATCH_KEYS) {
+      const legacyRaw = localStorage.getItem(key);
+      if (!legacyRaw) continue;
+      const legacyParsed = JSON.parse(legacyRaw);
+      if (Array.isArray(legacyParsed) && legacyParsed.length > 0) {
+        localStorage.setItem(BATCHES_KEY, JSON.stringify(legacyParsed));
+        return legacyParsed;
+      }
+    }
+
+    return [];
   } catch {
     return [];
   }

@@ -3,7 +3,6 @@ import { Link, useNavigate } from "react-router-dom";
 import { QRCodeCanvas } from "qrcode.react";
 import { Plus, ArrowRight, Shield, Search, AlertTriangle, CheckCircle, BarChart3, PackageCheck, Truck, Warehouse, ScanSearch, ShieldAlert, Map } from "lucide-react";
 import { motion as Motion, AnimatePresence } from "framer-motion";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, RadialBarChart, RadialBar } from "recharts";
 import { APP_NAME, NETWORK_NAME, ROLE_OPTIONS, ROLES } from "../../config/sentinelChain";
 import { buildQrPayload } from "../../services/qrVerification";
 import { useSentinelDashboard } from "../../hooks/useSentinelDashboard";
@@ -35,6 +34,7 @@ function DashboardPage({ initialRole = ROLES.CONSUMER, lockRole = false, bottomC
     refreshRecentScanEvents,
     clearRecentScanEvents,
     connectWallet,
+    disconnectWallet,
     createBatch,
     transferBatch,
     recallBatch,
@@ -59,15 +59,6 @@ function DashboardPage({ initialRole = ROLES.CONSUMER, lockRole = false, bottomC
   const totalBatches = trackedBatchIds.size;
   const totalScans = recentScanEvents.length;
   const suspiciousScans = Number(consumerBatchData?.suspiciousScans ?? suspiciousSignals ?? 0);
-  const trustScore = Math.max(0, Math.min(100, Number(consumerBatchData?.trustScore ?? 100 - suspiciousScans * 8)));
-
-  const volumeChartData = [
-    { name: "Batches", value: totalBatches },
-    { name: "Scans", value: totalScans },
-    { name: "Suspicious", value: suspiciousScans },
-  ];
-
-  const trustChartData = [{ name: "Trust", value: trustScore, fill: trustScore >= 75 ? "#22c55e" : trustScore >= 45 ? "#f59e0b" : "#ef4444" }];
   const recalledCount = trackedBatches.filter((item) => item.recalled).length;
   const avgTrust = trackedBatches.length
     ? Math.round(trackedBatches.reduce((sum, item) => sum + Number(item.trustScore || 0), 0) / trackedBatches.length)
@@ -89,6 +80,11 @@ function DashboardPage({ initialRole = ROLES.CONSUMER, lockRole = false, bottomC
     navigate("/", { replace: true });
   };
 
+  const handleDisconnectWallet = () => {
+    clearConnectedWallet();
+    disconnectWallet();
+  };
+
   return (
     <>
       <nav className="navbar">
@@ -107,9 +103,21 @@ function DashboardPage({ initialRole = ROLES.CONSUMER, lockRole = false, bottomC
           </Link>
         </div>
         <div className="nav-right">
-          <button className="btn-primary" onClick={connectWallet} style={{ fontSize: "0.85rem" }}>
-            {account ? `${account.slice(0, 6)}...${account.slice(-4)}` : "Connect Wallet"}
-          </button>
+          {!account && (
+            <button className="btn-primary" onClick={connectWallet} style={{ fontSize: "0.85rem" }}>
+              Connect Wallet
+            </button>
+          )}
+          {account && (
+            <>
+              <button className="btn-primary" onClick={connectWallet} style={{ fontSize: "0.85rem" }}>
+                {`${account.slice(0, 6)}...${account.slice(-4)}`}
+              </button>
+              <button className="btn-secondary" onClick={handleDisconnectWallet} style={{ fontSize: "0.85rem" }}>
+                Disconnect Wallet
+              </button>
+            </>
+          )}
           <button className="btn-secondary" onClick={handleLogout} style={{ fontSize: "0.85rem" }}>
             Logout
           </button>
@@ -171,66 +179,6 @@ function DashboardPage({ initialRole = ROLES.CONSUMER, lockRole = false, bottomC
               {NETWORK_NAME} {account ? "• Connected" : "• Disconnected"}
             </div>
           </div>
-        </div>
-
-        <div className="analytics-widgets">
-          <Motion.div className="metric-widget" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-            <div className="metric-label">Total Batches</div>
-            <div className="metric-value">{totalBatches}</div>
-          </Motion.div>
-          <Motion.div className="metric-widget" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.04 }}>
-            <div className="metric-label">Total Scans</div>
-            <div className="metric-value">{totalScans}</div>
-          </Motion.div>
-          <Motion.div className="metric-widget danger" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
-            <div className="metric-label">Suspicious Scans</div>
-            <div className="metric-value">{suspiciousScans}</div>
-          </Motion.div>
-          <Motion.div className="metric-widget" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}>
-            <div className="metric-label">Trust Score</div>
-            <div className="metric-value">{trustScore}</div>
-          </Motion.div>
-        </div>
-
-        <div className="analytics-charts">
-          <Motion.div className="action-card" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-            <div className="card-top">
-              <h3>Operational Metrics</h3>
-              <div className="card-icon">
-                <BarChart3 size={18} />
-              </div>
-            </div>
-            <div className="chart-frame">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={volumeChartData} margin={{ top: 8, right: 8, left: -12, bottom: 8 }}>
-                  <XAxis dataKey="name" tick={{ fill: "#6B5B69", fontSize: 12 }} axisLine={false} tickLine={false} />
-                  <YAxis allowDecimals={false} tick={{ fill: "#6B5B69", fontSize: 12 }} axisLine={false} tickLine={false} />
-                  <Tooltip cursor={{ fill: "rgba(56, 25, 50, 0.05)" }} />
-                  <Bar dataKey="value" fill="#381932" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </Motion.div>
-
-          <Motion.div className="action-card" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.06 }}>
-            <div className="card-top">
-              <h3>Trust Visualization</h3>
-              <div className="card-icon">
-                <Shield size={18} />
-              </div>
-            </div>
-            <div className="chart-frame radial">
-              <ResponsiveContainer width="100%" height="100%">
-                <RadialBarChart innerRadius="72%" outerRadius="100%" barSize={16} data={trustChartData} startAngle={90} endAngle={-270}>
-                  <RadialBar background clockWise dataKey="value" cornerRadius={12} />
-                </RadialBarChart>
-              </ResponsiveContainer>
-              <div className="radial-score">
-                <div className="score-number">{trustScore}</div>
-                <div className="score-label">/ 100</div>
-              </div>
-            </div>
-          </Motion.div>
         </div>
 
         <div className="action-grid">

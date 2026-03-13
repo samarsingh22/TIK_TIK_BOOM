@@ -12,6 +12,7 @@ import AnalyticsDashboard from "./analytics/AnalyticsDashboard";
 import Docs from "./Docs";
 import ProtectedRoute from "./components/ProtectedRoute";
 import RoleDashboardRedirect from "./components/RoleDashboardRedirect";
+import FloatingChatbot from "./components/FloatingChatbot";
 import "./App.css";
 
 function App() {
@@ -90,6 +91,7 @@ function App() {
         />
         <Route path="*" element={<Landing />} />
       </Routes>
+      <FloatingChatbot />
     </Router>
   );
 }

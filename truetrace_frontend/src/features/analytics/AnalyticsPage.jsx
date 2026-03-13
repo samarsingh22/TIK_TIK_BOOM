@@ -5,6 +5,7 @@ import { BarChart3, TrendingUp, Globe, ShieldCheck, AlertTriangle, Package, User
 import { clearConnectedWallet, clearSession, getSession } from "../../utils/authStorage";
 import { readScanEvents } from "../../ai/scanLogger";
 import { listTrackedBatches } from "../../services/batchStore";
+import demoDataset from "../../ai/demoDataset";
 import Heatmap from "../../analytics/Heatmap";
 import SupplyTimeline from "../../analytics/SupplyTimeline";
 
@@ -24,6 +25,37 @@ const CITY_COORDS = {
   Singapore: [1.3521, 103.8198],
 };
 
+function normalizeTimestamp(value) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  const parsed = Date.parse(String(value || ""));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getFallbackAnalyticsData() {
+  const fallbackBatches = demoDataset.map((item) => ({
+    batchId: item.batchId,
+    recalled: Boolean(item.recallDate),
+    suspiciousScans: 0,
+    trustScore: 100,
+    updatedAt: item.recallDate || item.expiryDate || item.manufactureDate,
+    history: [],
+  }));
+
+  const fallbackScans = demoDataset.flatMap((item) =>
+    (Array.isArray(item.scans) ? item.scans : []).map((scan) => ({
+      batchID: item.batchId,
+      location: scan.location,
+      role: scan.role,
+      timestamp: normalizeTimestamp(scan.timestamp),
+    })),
+  );
+
+  return {
+    batches: fallbackBatches,
+    scans: fallbackScans,
+  };
+}
+
 function getMonthKey(ts) {
   const d = new Date(ts);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
@@ -40,8 +72,11 @@ export default function AnalyticsPage() {
   };
 
   const data = useMemo(() => {
-    const batches = listTrackedBatches();
-    const scans = readScanEvents().slice().sort((a, b) => Number(a.timestamp || 0) - Number(b.timestamp || 0));
+    const trackedBatches = listTrackedBatches();
+    const trackedScans = readScanEvents().slice().sort((a, b) => Number(a.timestamp || 0) - Number(b.timestamp || 0));
+    const fallback = trackedBatches.length === 0 && trackedScans.length === 0 ? getFallbackAnalyticsData() : null;
+    const batches = fallback ? fallback.batches : trackedBatches;
+    const scans = fallback ? fallback.scans : trackedScans;
 
     const suspiciousBatchIds = new Set(
       batches.filter((b) => Number(b.suspiciousScans || 0) > 0 || b.recalled).map((b) => String(b.batchId || "").toLowerCase()),

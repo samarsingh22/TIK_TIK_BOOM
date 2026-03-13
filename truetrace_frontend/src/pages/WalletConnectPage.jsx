@@ -4,6 +4,17 @@ import { CheckCircle, AlertTriangle } from "lucide-react";
 import { APP_NAME } from "../config/sentinelChain";
 import { getConnectedWallet, getSession, setConnectedWallet } from "../utils/authStorage";
 
+function getMetaMaskProvider() {
+  const injected = window.ethereum;
+  if (!injected) return null;
+
+  if (Array.isArray(injected.providers) && injected.providers.length > 0) {
+    return injected.providers.find((provider) => provider && provider.isMetaMask) || null;
+  }
+
+  return injected.isMetaMask ? injected : null;
+}
+
 export default function WalletConnectPage() {
   const navigate = useNavigate();
   const [wallet, setWallet] = useState(getConnectedWallet());
@@ -18,22 +29,28 @@ export default function WalletConnectPage() {
   }, [navigate]);
 
   async function connectWallet() {
-    if (!window.ethereum) {
+    const provider = getMetaMaskProvider();
+    if (!provider) {
       setErrorMsg("Please install MetaMask to continue.");
       setSuccessMsg("");
       return;
     }
 
     try {
-      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+      const accounts = await provider.request({ method: "eth_requestAccounts" });
       const account = accounts[0];
       setConnectedWallet(account);
       setWallet(account);
       setSuccessMsg("Wallet connected. Redirecting to login.");
       setErrorMsg("");
       setTimeout(() => navigate("/auth"), 450);
-    } catch {
-      setErrorMsg("Wallet connection was rejected or failed.");
+    } catch (error) {
+      const code = Number(error?.code || 0);
+      if (code === 4001) {
+        setErrorMsg("MetaMask connection request was rejected.");
+      } else {
+        setErrorMsg("Wallet connection failed. Make sure MetaMask is unlocked and selected as active wallet provider.");
+      }
       setSuccessMsg("");
     }
   }

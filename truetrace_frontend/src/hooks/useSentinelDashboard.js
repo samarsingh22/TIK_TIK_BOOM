@@ -120,6 +120,12 @@ export function useSentinelDashboard(options = {}) {
     }
   }
 
+  function disconnectWallet() {
+    setAccount(null);
+    setContract(null);
+    displayMessage("Wallet disconnected.", "success");
+  }
+
   async function createBatch() {
     if (!contract) {
       displayMessage("Please Connect Wallet first.", "error");
@@ -292,6 +298,7 @@ export function useSentinelDashboard(options = {}) {
     refreshRecentScanEvents,
     clearRecentScanEvents,
     connectWallet,
+    disconnectWallet,
     createBatch,
     transferBatch,
     recallBatch,

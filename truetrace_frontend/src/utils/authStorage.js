@@ -1,6 +1,8 @@
 const ACCOUNTS_KEY = "True Trace.accounts.v1";
 const SESSION_KEY = "True Trace.session.v1";
 const WALLET_KEY = "True Trace.connected.wallet.v1";
+const CHAT_STORAGE_KEY = "truetrace.chatbot.messages.v1";
+const SESSION_CHANGED_EVENT = "truetrace:session-changed";
 const RESET_MARKER_KEY = "True Trace.local.reset.version";
 const RESET_VERSION = 1;
 const LEGACY_KEYS = [
@@ -10,8 +12,6 @@ const LEGACY_KEYS = [
   "True Trace.accounts.v1",
   "True Trace.session.v1",
   "True Trace.connected.wallet.v1",
-  "True Trace.ai.scan.events.v1",
-  "True Trace.batches.v1",
 ];
 
 const ROLE_ALIASES = Object.freeze({
@@ -57,6 +57,12 @@ function readJson(key, fallback) {
 
 function writeJson(key, value) {
   localStorage.setItem(key, JSON.stringify(value));
+}
+
+function emitSessionChanged() {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(SESSION_CHANGED_EVENT));
+  }
 }
 
 function normalizeText(value) {
@@ -156,6 +162,7 @@ export function loginAccount(payload) {
   };
 
   writeJson(SESSION_KEY, session);
+  emitSessionChanged();
   return session;
 }
 
@@ -194,6 +201,8 @@ export function getSessionProfile() {
 
 export function clearSession() {
   localStorage.removeItem(SESSION_KEY);
+  sessionStorage.removeItem(CHAT_STORAGE_KEY);
+  emitSessionChanged();
 }
 
 export function setConnectedWallet(address) {

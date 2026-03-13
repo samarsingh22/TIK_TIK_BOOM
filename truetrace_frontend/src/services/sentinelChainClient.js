@@ -1,13 +1,28 @@
 import { ethers } from "ethers";
 import { CONTRACT_ADDRESS, SENTINEL_CHAIN_ABI } from "../config/sentinelChain";
 
-export async function connectWalletClient() {
-  if (!window.ethereum) {
+function getMetaMaskProvider() {
+  const injected = window.ethereum;
+  if (!injected) {
     throw new Error("MetaMask wallet was not detected.");
   }
 
-  const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-  const provider = new ethers.BrowserProvider(window.ethereum);
+  if (Array.isArray(injected.providers) && injected.providers.length > 0) {
+    const metaMaskProvider = injected.providers.find((provider) => provider && provider.isMetaMask);
+    if (metaMaskProvider) return metaMaskProvider;
+  }
+
+  if (injected.isMetaMask) {
+    return injected;
+  }
+
+  throw new Error("MetaMask is not the active wallet provider. Please open MetaMask or disable other wallet extensions temporarily.");
+}
+
+export async function connectWalletClient() {
+  const ethereum = getMetaMaskProvider();
+  const accounts = await ethereum.request({ method: "eth_requestAccounts" });
+  const provider = new ethers.BrowserProvider(ethereum);
   const signer = await provider.getSigner();
   const contract = new ethers.Contract(CONTRACT_ADDRESS, SENTINEL_CHAIN_ABI, signer);
 
