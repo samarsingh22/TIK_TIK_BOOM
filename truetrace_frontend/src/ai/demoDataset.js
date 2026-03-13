@@ -192,4 +192,84 @@ export const demoDataset = [
   },
 ];
 
+const DEMO_DATASET_STATUS_KEY = "sentinelchain.ai.demo.status.v1";
+
+function canUseStorage() {
+  return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
+}
+
+function normalizeBatchId(batchId) {
+  return String(batchId || "").trim().toLowerCase();
+}
+
+function readStatusOverrides() {
+  if (!canUseStorage()) return {};
+
+  try {
+    const raw = window.localStorage.getItem(DEMO_DATASET_STATUS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeStatusOverrides(overrides) {
+  if (!canUseStorage()) return;
+  window.localStorage.setItem(DEMO_DATASET_STATUS_KEY, JSON.stringify(overrides));
+}
+
+function findProductIndex(batchId) {
+  const key = normalizeBatchId(batchId);
+  return demoDataset.findIndex((product) => normalizeBatchId(product.batchId) === key);
+}
+
+function applyStatusOverrides() {
+  const overrides = readStatusOverrides();
+
+  Object.entries(overrides).forEach(([batchIdKey, statusPatch]) => {
+    const index = demoDataset.findIndex((product) => normalizeBatchId(product.batchId) === batchIdKey);
+    if (index >= 0 && statusPatch && typeof statusPatch === "object") {
+      demoDataset[index] = {
+        ...demoDataset[index],
+        ...statusPatch,
+      };
+    }
+  });
+}
+
+export function getProductByBatchId(batchId) {
+  const index = findProductIndex(batchId);
+  return index >= 0 ? demoDataset[index] : null;
+}
+
+export function updateProductStatus(batchId, statusPatch = {}) {
+  const index = findProductIndex(batchId);
+  if (index < 0) {
+    return null;
+  }
+
+  const current = demoDataset[index];
+  const next = {
+    ...current,
+    ...statusPatch,
+    statusUpdatedAt: new Date().toISOString(),
+  };
+
+  demoDataset[index] = next;
+
+  const overrides = readStatusOverrides();
+  overrides[normalizeBatchId(batchId)] = {
+    ...(overrides[normalizeBatchId(batchId)] || {}),
+    ...statusPatch,
+    statusUpdatedAt: next.statusUpdatedAt,
+  };
+  writeStatusOverrides(overrides);
+
+  return next;
+}
+
+applyStatusOverrides();
+
 export default demoDataset;

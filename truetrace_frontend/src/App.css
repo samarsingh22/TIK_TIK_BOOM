@@ -259,6 +259,361 @@
   outline: none;
 }
 
+.ai-intelligence-panel {
+  margin-top: 32px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--white);
+  padding: 20px;
+  box-shadow: 0 12px 30px rgba(56, 25, 50, 0.05);
+}
+
+.ai-intelligence-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.ai-intelligence-head h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.ai-intelligence-toggle {
+  display: inline-flex;
+  gap: 8px;
+  padding: 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.ai-intelligence-toggle button {
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  padding: 8px 14px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ai-intelligence-toggle button.active {
+  background: var(--text);
+  color: var(--white);
+}
+
+.ai-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.ai-metric-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+  background: var(--bg);
+}
+
+.ai-metric-card .label {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  margin-bottom: 6px;
+}
+
+.ai-metric-card .value {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.ai-metric-card.danger {
+  border-color: #fecaca;
+  background: #fff7f7;
+}
+
+.ai-product-select-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.ai-product-select-row label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.ai-product-select-row select {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  background: var(--bg);
+  color: var(--text);
+  min-width: 180px;
+}
+
+.ai-product-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.meta-item {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.meta-item.full-width {
+  grid-column: 1 / -1;
+}
+
+.meta-item .label {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  margin-bottom: 4px;
+}
+
+.meta-item .value {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.ai-detail-sections {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.ai-detail-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  background: #fffdfa;
+}
+
+.ai-detail-card h4 {
+  margin: 0 0 8px;
+  font-size: 0.9rem;
+}
+
+.ai-list-item {
+  border-top: 1px dashed var(--border);
+  padding: 8px 0;
+  display: grid;
+  gap: 2px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.ai-list-item:first-of-type {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.muted {
+  color: var(--text-secondary);
+  margin: 0;
+  font-size: 0.82rem;
+}
+
+.ai-threat-card {
+  width: 100%;
+  max-width: 600px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--white);
+  padding: 18px;
+  box-shadow: 0 4px 16px rgba(56, 25, 50, 0.06);
+}
+
+.ai-threat-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.ai-threat-card-top h4 {
+  margin: 0;
+  font-size: 1rem;
+  letter-spacing: -0.01em;
+}
+
+.threat-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 82px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.threat-badge.low {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.threat-badge.medium {
+  background: #fef9c3;
+  color: #a16207;
+}
+
+.threat-badge.high {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+.threat-badge.critical {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.ai-threat-grid {
+  border-top: 1px solid var(--border);
+}
+
+.ai-threat-row {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.ai-threat-row:last-child {
+  border-bottom: none;
+}
+
+.ai-threat-row .label {
+  color: var(--text-secondary);
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.ai-threat-row .value {
+  color: var(--text);
+  font-weight: 600;
+  font-size: 0.85rem;
+  word-break: break-word;
+}
+
+.regulator-threat-controls {
+  width: 100%;
+  max-width: 900px;
+  margin: 16px auto 0;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--white);
+  box-shadow: 0 10px 24px rgba(56, 25, 50, 0.06);
+}
+
+.regulator-controls-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.regulator-controls-header h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.regulator-controls-header select {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  padding: 8px 10px;
+  min-width: 180px;
+}
+
+.regulator-status-strip {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.regulator-status-strip span {
+  font-size: 0.78rem;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  background: var(--bg);
+}
+
+.regulator-action-buttons {
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.regulator-action-buttons .btn-secondary {
+  border-color: #e7d7d1;
+}
+
+.regulator-status-message {
+  margin: 12px 0 0;
+  color: #166534;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+@media (max-width: 560px) {
+  .ai-threat-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+}
+
+@media (max-width: 960px) {
+  .ai-intelligence-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .ai-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ai-detail-sections {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .ai-metric-grid,
+  .ai-product-meta-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ai-intelligence-toggle {
+    width: 100%;
+  }
+
+  .ai-intelligence-toggle button {
+    flex: 1;
+  }
+}
+
 .toolbar-left select:focus {
   border-color: #9C7D7B;
 }

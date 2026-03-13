@@ -1,11 +1,27 @@
 const SCAN_LOG_STORAGE_KEY = "sentinelchain.ai.scan.events.v1";
 
+function normalizeStoredEvent(event) {
+  return {
+    batchId: String(event?.batchId ?? event?.batchID ?? "").trim(),
+    location: String(event?.location || "").trim(),
+    role: String(event?.role || "Unknown").trim(),
+    timestamp: Number(event?.timestamp || Date.now()),
+  };
+}
+
+function withLegacyBatchId(event) {
+  return {
+    ...event,
+    batchID: event.batchId,
+  };
+}
+
 function readRawEvents() {
   try {
     const raw = localStorage.getItem(SCAN_LOG_STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed) ? parsed.map(normalizeStoredEvent).filter((event) => event.batchId) : [];
   } catch {
     return [];
   }
@@ -21,32 +37,56 @@ export function getCurrentLocation() {
   return city.replace(/_/g, " ");
 }
 
-export function readScanEvents() {
-  return readRawEvents();
-}
+export function logScanEvent(batchId, location, role) {
+  const eventInput =
+    typeof batchId === "object" && batchId !== null
+      ? {
+          batchId: batchId.batchId ?? batchId.batchID,
+          location: batchId.location,
+          role: batchId.role,
+          timestamp: batchId.timestamp,
+        }
+      : {
+          batchId,
+          location,
+          role,
+          timestamp: Date.now(),
+        };
 
-export function logScanEvent({ batchID, timestamp = Date.now(), location }) {
-  const event = {
-    batchID: String(batchID || "").trim(),
-    timestamp: Number(timestamp),
-    location: String(location || getCurrentLocation()).trim(),
-  };
+  const event = normalizeStoredEvent({
+    ...eventInput,
+    location: eventInput.location || getCurrentLocation(),
+  });
 
-  if (!event.batchID) {
-    throw new Error("batchID is required to log a scan event.");
+  if (!event.batchId) {
+    throw new Error("batchId is required to log a scan event.");
   }
 
   const events = readRawEvents();
   const nextEvents = [...events.slice(-499), event];
   writeRawEvents(nextEvents);
-  return event;
+  return withLegacyBatchId(event);
 }
 
-export function getBatchScanEvents(batchID) {
-  const key = String(batchID || "").trim().toLowerCase();
+export function getScanHistory(batchId) {
+  const key = String(batchId || "").trim().toLowerCase();
   if (!key) return [];
 
-  return readRawEvents().filter((event) => String(event.batchID || "").toLowerCase() === key);
+  return readRawEvents()
+    .filter((event) => event.batchId.toLowerCase() === key)
+    .map(withLegacyBatchId);
+}
+
+export function getAllScans() {
+  return readRawEvents().map(withLegacyBatchId);
+}
+
+export function readScanEvents() {
+  return getAllScans();
+}
+
+export function getBatchScanEvents(batchId) {
+  return getScanHistory(batchId);
 }
 
 export function clearScanEvents() {

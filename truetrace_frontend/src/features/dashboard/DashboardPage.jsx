@@ -10,8 +10,9 @@ import { useSentinelDashboard } from "../../hooks/useSentinelDashboard";
 import { clearConnectedWallet, clearSession, getSessionProfile } from "../../utils/authStorage";
 import QRScanner from "../../components/QRScanner";
 import BatchCard from "../../components/BatchCard";
+import AIIntelligencePanel from "../../components/AIIntelligencePanel";
 
-function DashboardPage({ initialRole = ROLES.CONSUMER, lockRole = false }) {
+function DashboardPage({ initialRole = ROLES.CONSUMER, lockRole = false, bottomContent = null }) {
   const navigate = useNavigate();
   const [scannedBatchData, setScannedBatchData] = useState(null);
 
@@ -628,6 +629,9 @@ function DashboardPage({ initialRole = ROLES.CONSUMER, lockRole = false }) {
           )}
 
         </div>
+
+        <AIIntelligencePanel />
+        {bottomContent}
       </div>
     </>
   );
