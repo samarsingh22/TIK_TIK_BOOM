@@ -12,7 +12,7 @@ function readRawBody(req) {
   })
 }
 
-function geminiDevProxyPlugin(geminiApiKey = '') {
+function geminiDevProxyPlugin(geminiApiKey = '', geminiModel = 'gemini-2.0-flash') {
   const route = '/api/gemini-chat'
 
   const handler = async (req, res) => {
@@ -64,7 +64,7 @@ function geminiDevProxyPlugin(geminiApiKey = '') {
         },
       }
 
-      const upstream = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`, {
+      const upstream = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(geminiModel)}:generateContent?key=${encodeURIComponent(apiKey)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -111,10 +111,11 @@ function geminiDevProxyPlugin(geminiApiKey = '') {
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), '')
-  const geminiApiKey = String(env.GEMINI_API_KEY || env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '').trim()
+  const env = loadEnv(mode, '.', '')
+  const geminiApiKey = String(env.GEMINI_API_KEY || env.VITE_GEMINI_API_KEY || '').trim()
+  const geminiModel = String(env.GEMINI_MODEL || 'gemini-2.0-flash').trim()
 
   return {
-    plugins: [react(), geminiDevProxyPlugin(geminiApiKey)],
+    plugins: [react(), geminiDevProxyPlugin(geminiApiKey, geminiModel)],
   }
 })

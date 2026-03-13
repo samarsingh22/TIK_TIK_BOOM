@@ -1,7 +1,11 @@
-const GEMINI_MODEL = "gemini-1.5-flash";
+const DEFAULT_GEMINI_MODEL = "gemini-2.0-flash";
 
 function resolveGeminiApiKey() {
   return String(process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || "").trim();
+}
+
+function resolveGeminiModel() {
+  return String(process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL).trim();
 }
 
 function normalizeHistory(messages) {
@@ -12,8 +16,8 @@ function normalizeHistory(messages) {
     : [];
 }
 
-async function callGemini({ apiKey, messages, userInput }) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`;
+async function callGemini({ apiKey, model, messages, userInput }) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
   const payload = {
     systemInstruction: {
       parts: [
@@ -57,6 +61,7 @@ export default async function handler(req, res) {
   }
 
   const apiKey = resolveGeminiApiKey();
+  const model = resolveGeminiModel();
   if (!apiKey) {
     res.status(500).json({ error: "Gemini API key is missing on server. Set GEMINI_API_KEY." });
     return;
@@ -69,7 +74,7 @@ export default async function handler(req, res) {
       return;
     }
 
-    const text = await callGemini({ apiKey, messages, userInput });
+    const text = await callGemini({ apiKey, model, messages, userInput });
     res.status(200).json({ text });
   } catch (error) {
     res.status(502).json({ error: error?.message || "Gemini request failed." });

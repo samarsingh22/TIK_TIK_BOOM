@@ -59,9 +59,9 @@ function writeJson(key, value) {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
-function emitSessionChanged() {
+function emitSessionChanged(action = "updated") {
   if (typeof window !== "undefined") {
-    window.dispatchEvent(new Event(SESSION_CHANGED_EVENT));
+    window.dispatchEvent(new CustomEvent(SESSION_CHANGED_EVENT, { detail: { action } }));
   }
 }
 
@@ -162,7 +162,7 @@ export function loginAccount(payload) {
   };
 
   writeJson(SESSION_KEY, session);
-  emitSessionChanged();
+  emitSessionChanged("login");
   return session;
 }
 
@@ -202,7 +202,7 @@ export function getSessionProfile() {
 export function clearSession() {
   localStorage.removeItem(SESSION_KEY);
   sessionStorage.removeItem(CHAT_STORAGE_KEY);
-  emitSessionChanged();
+  emitSessionChanged("logout");
 }
 
 export function setConnectedWallet(address) {

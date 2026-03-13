@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MessageCircle, X, Send } from "lucide-react";
-import { getSession } from "../utils/authStorage";
 import { sendChatMessageToGemini } from "../ai/chatbotClient";
+import { buildFallbackChatReply } from "../ai/chatbotFallback";
 
 const CHAT_STORAGE_KEY = "truetrace.chatbot.messages.v1";
 const CHAT_EVENT = "truetrace:session-changed";
@@ -32,7 +32,6 @@ export default function FloatingChatbot() {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState(() => readMessages());
-  const [isAuthenticated, setIsAuthenticated] = useState(Boolean(getSession()));
   const [isSending, setIsSending] = useState(false);
   const listRef = useRef(null);
 
@@ -44,11 +43,10 @@ export default function FloatingChatbot() {
   }, [messages]);
 
   useEffect(() => {
-    const handleSessionChange = () => {
-      const nextAuth = Boolean(getSession());
-      setIsAuthenticated(nextAuth);
+    const handleSessionChange = (event) => {
+      const action = event?.detail?.action || "updated";
 
-      if (!nextAuth) {
+      if (action === "logout") {
         setIsOpen(false);
         setMessages([INITIAL_MESSAGE]);
         sessionStorage.removeItem(CHAT_STORAGE_KEY);
@@ -83,10 +81,13 @@ export default function FloatingChatbot() {
     setIsSending(true);
     try {
       const result = await sendChatMessageToGemini({ messages, userInput: trimmed });
+      const finalText = !result.ok && result.shouldFallback
+        ? buildFallbackChatReply(trimmed, window.location.pathname)
+        : result.text;
       const botMessage = {
         id: `b-${Date.now() + 1}`,
         role: "bot",
-        text: result.text,
+        text: finalText,
         at: Date.now() + 1,
       };
       setMessages((prev) => [...prev, botMessage]);
@@ -96,7 +97,7 @@ export default function FloatingChatbot() {
         {
           id: `b-${Date.now() + 1}`,
           role: "bot",
-          text: "Request failed. Please check network and Gemini API key setup.",
+          text: buildFallbackChatReply(trimmed, window.location.pathname),
           at: Date.now() + 1,
         },
       ]);
@@ -104,10 +105,6 @@ export default function FloatingChatbot() {
       setIsSending(false);
     }
   };
-
-  if (!isAuthenticated) {
-    return null;
-  }
 
   return (
     <div className="floating-chatbot-root" aria-live="polite">
