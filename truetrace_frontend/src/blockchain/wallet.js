@@ -1,5 +1,9 @@
 import { ethers } from "ethers";
 
+export function getReadonlyProvider() {
+  return new ethers.JsonRpcProvider("https://rpc.sepolia.org");
+}
+
 function getEthereum() {
   if (!window.ethereum) {
     throw new Error("MetaMask wallet was not detected.");

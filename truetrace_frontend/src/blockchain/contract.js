@@ -1,7 +1,6 @@
 import { ethers } from "ethers";
 import { CONTRACT_ADDRESS, SENTINEL_CHAIN_ABI } from "../config/sentinelChain";
-import { getProviderAndSigner } from "./wallet";
-
+import { getProviderAndSigner, getReadonlyProvider } from "./wallet";
 export function getContractAbi() {
   return SENTINEL_CHAIN_ABI;
 }
@@ -9,6 +8,11 @@ export function getContractAbi() {
 export async function getSentinelContract() {
   const { signer } = await getProviderAndSigner();
   return new ethers.Contract(CONTRACT_ADDRESS, SENTINEL_CHAIN_ABI, signer);
+}
+
+export async function getReadonlyContract() {
+  const provider = getReadonlyProvider();
+  return new ethers.Contract(CONTRACT_ADDRESS, SENTINEL_CHAIN_ABI, provider);
 }
 
 export async function createBatch(batchId, productName, mfgDate, expDate) {
@@ -26,7 +30,7 @@ export async function transferBatch(batchId, newOwner) {
 }
 
 export async function verifyBatch(batchId) {
-  const contract = await getSentinelContract();
+  const contract = await getReadonlyContract();
   const data = await contract.verifyBatch(batchId);
 
   return {
