@@ -1133,6 +1133,10 @@
   word-break: break-all;
 }
 
+.result-item .value.value-recalled {
+  color: #b91c1c;
+}
+
 /* ---- RESPONSIVE ---- */
 @media (max-width: 900px) {
   .hero {
@@ -1410,6 +1414,14 @@
 .dpp-pill.high {
   background: #fee2e2;
   color: #b91c1c;
+}
+
+.dpp-recall-note {
+  display: block;
+  margin-top: 8px;
+  color: #b91c1c;
+  font-size: 0.78rem;
+  font-weight: 700;
 }
 
 .dpp-two-col {

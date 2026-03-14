@@ -352,7 +352,9 @@ function DashboardPage({ initialRole = ROLES.CONSUMER, lockRole = false, bottomC
                 {trackedBatches.slice(0, 8).map((item) => (
                   <div key={item.batchId} style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", color: "var(--text-secondary)", padding: "2px 0" }}>
                     <span>{item.batchId}</span>
-                    <span>{item.recalled ? "Recalled" : Number(item.suspiciousScans || 0) > 0 ? "Flagged" : "Verified"}</span>
+                    <span style={item.recalled ? { color: "#b91c1c", fontWeight: 700 } : undefined}>
+                      {item.recalled ? "Recalled" : Number(item.suspiciousScans || 0) > 0 ? "Flagged" : "Verified"}
+                    </span>
                   </div>
                 ))}
               </div>

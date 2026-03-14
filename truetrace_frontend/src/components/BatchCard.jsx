@@ -41,7 +41,7 @@ export default function BatchCard({ batch }) {
         </div>
         <div className="result-item">
           <div className="label">Recall Status</div>
-          <div className="value">{batch.recalled ? "Recalled" : "Active"}</div>
+          <div className={`value ${batch.recalled ? "value-recalled" : ""}`}>{batch.recalled ? "Recalled" : "Active"}</div>
         </div>
         <div className="result-item">
           <div className="label">Trust Score</div>

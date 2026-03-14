@@ -44,6 +44,16 @@ function formatDate(value) {
   return new Date(ts).toLocaleDateString();
 }
 
+function pickFirstNonEmpty(...values) {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) return value.trim();
+    if (typeof value === "number" && Number.isFinite(value)) return String(value);
+    if (value && typeof value === "object") continue;
+    if (value === true || value === false) continue;
+  }
+  return "";
+}
+
 function getRiskLevel({ recalled, suspiciousScans, anomalyFlags }) {
   if (recalled) return "HIGH";
   if (Number(suspiciousScans || 0) >= 3) return "HIGH";
@@ -130,6 +140,8 @@ export default function ProductVerification() {
           return;
         }
 
+        const trackedByRouteId = findTrackedBatch(batchId);
+
         const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
         const provider = new ethers.JsonRpcProvider(isLocalhost ? "http://127.0.0.1:8545" : "https://rpc2.sepolia.org");
         const contract = new ethers.Contract(CONTRACT_ADDRESS, SENTINEL_CHAIN_ABI, provider);
@@ -144,39 +156,65 @@ export default function ProductVerification() {
           chainData = null;
         }
 
-        if (!chainData || !chainData[0]) {
+        if (!chainData || (!chainData[0] && !chainData.batchId)) {
           const searchParams = new URLSearchParams(locationPath.search);
           const dataParam = searchParams.get("data");
 
-          if (!dataParam) {
+          if (!dataParam && !trackedByRouteId) {
             setErrorMessage("Product not found on blockchain for this Batch ID.");
             return;
           }
 
           let decoded = null;
-          try {
-            decoded = JSON.parse(dataParam);
-          } catch {
-            decoded = JSON.parse(decodeURIComponent(dataParam));
+          if (dataParam) {
+            try {
+              decoded = JSON.parse(dataParam);
+            } catch {
+              decoded = JSON.parse(decodeURIComponent(dataParam));
+            }
           }
 
           chainData = [
-            decoded?.BatchID || batchId,
-            decoded?.Product || "Unknown",
-            decoded?.Mfg || "N/A",
-            decoded?.Exp || "N/A",
-            "Unknown",
-            decoded?.Status === "Recalled",
+            decoded?.BatchID || decoded?.batchId || trackedByRouteId?.batchId || batchId,
+            pickFirstNonEmpty(decoded?.Product, decoded?.productName, decoded?.drugName, trackedByRouteId?.productName) || "Unknown",
+            pickFirstNonEmpty(decoded?.Mfg, decoded?.mfgDate, decoded?.manufactureDate, trackedByRouteId?.mfgDate) || "N/A",
+            pickFirstNonEmpty(decoded?.Exp, decoded?.expDate, decoded?.expiryDate, trackedByRouteId?.expDate) || "N/A",
+            pickFirstNonEmpty(decoded?.Owner, decoded?.owner, trackedByRouteId?.owner) || "Unknown",
+            Boolean(decoded?.Status === "Recalled" || decoded?.status === "Recalled" || trackedByRouteId?.recalled),
           ];
         }
 
+        const resolvedBatchId = pickFirstNonEmpty(chainData?.batchId, chainData?.[0], trackedByRouteId?.batchId, batchId) || batchId;
+        const resolvedDrugName = pickFirstNonEmpty(
+          chainData?.drugName,
+          chainData?.productName,
+          chainData?.[1],
+          trackedByRouteId?.productName,
+        ) || "Unknown";
+        const resolvedMfgDate = pickFirstNonEmpty(
+          chainData?.manufactureDate,
+          chainData?.mfgDate,
+          chainData?.[2],
+          trackedByRouteId?.mfgDate,
+        ) || "N/A";
+        const resolvedExpDate = pickFirstNonEmpty(
+          chainData?.expiryDate,
+          chainData?.expDate,
+          chainData?.[3],
+          trackedByRouteId?.expDate,
+        ) || "N/A";
+        const resolvedOwner = pickFirstNonEmpty(chainData?.owner, chainData?.[4], trackedByRouteId?.owner) || "Unknown";
+        const resolvedRecalled = Boolean(
+          chainData?.recalled ?? chainData?.[5] ?? trackedByRouteId?.recalled ?? false,
+        );
+
         const normalized = {
-          batchId: chainData[0],
-          drugName: chainData[1],
-          manufactureDate: chainData[2],
-          expiryDate: chainData[3],
-          owner: chainData[4],
-          recalled: Boolean(chainData[5]),
+          batchId: resolvedBatchId,
+          drugName: resolvedDrugName,
+          manufactureDate: resolvedMfgDate,
+          expiryDate: resolvedExpDate,
+          owner: resolvedOwner,
+          recalled: resolvedRecalled,
         };
 
         const scanLocation = getCurrentLocation();
@@ -334,6 +372,7 @@ export default function ProductVerification() {
                 <div className="dpp-intel-item">
                   <span className="label">Authenticity Status</span>
                   <span className={`dpp-pill ${batchData.recalled ? "high" : "low"}`}>{batchData.recalled ? "RECALLED" : "VERIFIED"}</span>
+                  {batchData.recalled && <span className="dpp-recall-note">Recalled this product</span>}
                 </div>
                 <div className="dpp-intel-item">
                   <span className="label">Trust Score</span>
