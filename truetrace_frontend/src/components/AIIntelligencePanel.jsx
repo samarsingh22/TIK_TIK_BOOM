@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
-import demoDataset from "../ai/demoDataset";
+import { useEffect, useMemo, useState } from "react";
 import { analyzeProduct } from "../ai/analyzeProduct";
 import { analyzeAllProducts } from "../ai/globalAnalytics";
+import { getUnifiedProductCatalog, getUnifiedProductByBatchId } from "../ai/productCatalog";
 
 const OVERALL_VIEW = "overall";
 const PRODUCT_VIEW = "product";
@@ -15,16 +15,30 @@ function formatTimestamp(value) {
 export default function AIIntelligencePanel() {
   const [viewMode, setViewMode] = useState(OVERALL_VIEW);
   const [selectedBatchId, setSelectedBatchId] = useState("");
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  const overallResult = useMemo(() => analyzeAllProducts(), []);
+  useEffect(() => {
+    const refresh = () => setRefreshKey((value) => value + 1);
+    window.addEventListener("storage", refresh);
+    window.addEventListener("focus", refresh);
+
+    return () => {
+      window.removeEventListener("storage", refresh);
+      window.removeEventListener("focus", refresh);
+    };
+  }, []);
+
+  const productCatalog = useMemo(() => getUnifiedProductCatalog(), [refreshKey]);
+
+  const overallResult = useMemo(() => analyzeAllProducts(), [refreshKey]);
   const productResult = useMemo(() => {
     if (!selectedBatchId) return null;
     return analyzeProduct(selectedBatchId);
-  }, [selectedBatchId]);
+  }, [selectedBatchId, refreshKey]);
 
   const selectedProduct = useMemo(
-    () => demoDataset.find((item) => String(item.batchId) === String(selectedBatchId)) || null,
-    [selectedBatchId],
+    () => getUnifiedProductByBatchId(selectedBatchId),
+    [selectedBatchId, refreshKey],
   );
 
   return (
@@ -78,7 +92,7 @@ export default function AIIntelligencePanel() {
             <label htmlFor="ai-product-selector">Select Product</label>
             <select id="ai-product-selector" value={selectedBatchId} onChange={(event) => setSelectedBatchId(event.target.value)}>
               <option value="">Select Product</option>
-              {demoDataset.map((product) => (
+              {productCatalog.map((product) => (
                 <option key={product.batchId} value={product.batchId}>
                   {product.batchId}
                 </option>
@@ -101,7 +115,9 @@ export default function AIIntelligencePanel() {
                 </div>
                 <div className="meta-item">
                   <div className="label">Manufacturer</div>
-                  <div className="value">{selectedProduct.manufacturer}</div>
+                  <div className="value wrap-text" title={selectedProduct.manufacturer || "Unknown"}>
+                    {selectedProduct.manufacturer || "Unknown"}
+                  </div>
                 </div>
                 <div className="meta-item">
                   <div className="label">Trust Score</div>

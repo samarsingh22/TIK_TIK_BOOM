@@ -1,11 +1,35 @@
 const SCAN_LOG_STORAGE_KEY = "sentinelchain.ai.scan.events.v1";
 const LEGACY_SCAN_LOG_STORAGE_KEY = "True Trace.ai.scan.events.v1";
 
+function canUseWindow() {
+  return typeof window !== "undefined";
+}
+
+export function getDeviceFingerprint() {
+  if (!canUseWindow()) return "server-runtime";
+
+  const nav = window.navigator || {};
+  const pieces = [
+    nav.userAgent || "unknown-agent",
+    nav.platform || "unknown-platform",
+    nav.language || "unknown-language",
+    window.screen?.width || 0,
+    window.screen?.height || 0,
+    window.devicePixelRatio || 1,
+  ];
+
+  return `fp-${btoa(String(pieces.join("|")).slice(0, 120)).replace(/=/g, "").slice(0, 18)}`;
+}
+
 function normalizeStoredEvent(event) {
+  const scannerRole = String(event?.scannerRole ?? event?.role ?? "Unknown").trim();
+
   return {
     batchId: String(event?.batchId ?? event?.batchID ?? "").trim(),
     location: String(event?.location || "").trim(),
-    role: String(event?.role || "Unknown").trim(),
+    scannerRole,
+    role: scannerRole,
+    deviceFingerprint: String(event?.deviceFingerprint || getDeviceFingerprint()).trim(),
     timestamp: Number(event?.timestamp || Date.now()),
   };
 }
@@ -31,7 +55,7 @@ function readRawEvents() {
     const deduped = [];
     const seen = new Set();
     merged.forEach((event) => {
-      const key = `${event.batchId}::${event.location}::${event.role}::${event.timestamp}`;
+      const key = `${event.batchId}::${event.location}::${event.scannerRole}::${event.deviceFingerprint}::${event.timestamp}`;
       if (seen.has(key)) return;
       seen.add(key);
       deduped.push(event);
@@ -60,13 +84,15 @@ export function logScanEvent(batchId, location, role) {
       ? {
           batchId: batchId.batchId ?? batchId.batchID,
           location: batchId.location,
-          role: batchId.role,
+          scannerRole: batchId.scannerRole ?? batchId.role,
+          deviceFingerprint: batchId.deviceFingerprint,
           timestamp: batchId.timestamp,
         }
       : {
           batchId,
           location,
-          role,
+          scannerRole: role,
+          deviceFingerprint: getDeviceFingerprint(),
           timestamp: Date.now(),
         };
 
@@ -94,6 +120,10 @@ export function getScanHistory(batchId) {
     .map(withLegacyBatchId);
 }
 
+export function getBatchScanHistory(batchId) {
+  return getScanHistory(batchId);
+}
+
 export function getAllScans() {
   return readRawEvents().map(withLegacyBatchId);
 }
@@ -108,4 +138,5 @@ export function getBatchScanEvents(batchId) {
 
 export function clearScanEvents() {
   localStorage.removeItem(SCAN_LOG_STORAGE_KEY);
+  localStorage.removeItem(LEGACY_SCAN_LOG_STORAGE_KEY);
 }

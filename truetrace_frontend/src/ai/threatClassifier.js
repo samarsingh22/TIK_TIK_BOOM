@@ -20,7 +20,11 @@ function normalizeType(type) {
 }
 
 export function classifyThreat(anomalyResult = {}) {
-  const anomalies = Array.isArray(anomalyResult.anomalies) ? anomalyResult.anomalies : [];
+  const anomalies = Array.isArray(anomalyResult.anomalyObjects)
+    ? anomalyResult.anomalyObjects
+    : Array.isArray(anomalyResult.anomalies)
+      ? anomalyResult.anomalies
+      : [];
 
   if (anomalies.length === 0) {
     return "LOW";

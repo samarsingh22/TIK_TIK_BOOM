@@ -1,5 +1,5 @@
-import demoDataset from "./demoDataset";
 import { analyzeProduct } from "./analyzeProduct";
+import { getUnifiedProductCatalog } from "./productCatalog";
 
 function roundToTwoDecimals(value) {
   return Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
@@ -21,7 +21,8 @@ function buildRegulatorAnomalyList(productAnalyses) {
 }
 
 export function analyzeAllProducts() {
-  const productAnalyses = demoDataset.map((product) => analyzeProduct(product.batchId));
+  const catalog = getUnifiedProductCatalog();
+  const productAnalyses = catalog.map((product) => analyzeProduct(product.batchId));
 
   const totalProducts = productAnalyses.length;
   const totalScans = productAnalyses.reduce((sum, product) => sum + (Array.isArray(product.scans) ? product.scans.length : 0), 0);

@@ -1,11 +1,10 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion as Motion } from "framer-motion";
-import { BarChart3, TrendingUp, Globe, ShieldCheck, AlertTriangle, Package, Users, Activity } from "lucide-react";
+import { TrendingUp, Globe, ShieldCheck, AlertTriangle, Package, Users, Activity } from "lucide-react";
 import { clearConnectedWallet, clearSession, getSession } from "../../utils/authStorage";
-import { readScanEvents } from "../../ai/scanLogger";
-import { listTrackedBatches } from "../../services/batchStore";
-import demoDataset from "../../ai/demoDataset";
+import { analyzeProduct } from "../../ai/analyzeProduct";
+import { getUnifiedProductCatalog } from "../../ai/productCatalog";
 import Heatmap from "../../analytics/Heatmap";
 import SupplyTimeline from "../../analytics/SupplyTimeline";
 
@@ -31,29 +30,20 @@ function normalizeTimestamp(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function getFallbackAnalyticsData() {
-  const fallbackBatches = demoDataset.map((item) => ({
-    batchId: item.batchId,
-    recalled: Boolean(item.recallDate),
-    suspiciousScans: 0,
-    trustScore: 100,
-    updatedAt: item.recallDate || item.expiryDate || item.manufactureDate,
-    history: [],
-  }));
+function shiftIntoLastSixMonths(originalTimestamp, seed = 0) {
+  const now = new Date();
+  const monthsAgo = Math.abs(seed) % 6;
+  const base = new Date(now.getFullYear(), now.getMonth() - monthsAgo, 1, 10, 0, 0, 0).getTime();
+  const original = normalizeTimestamp(originalTimestamp) || now.getTime();
+  return base + (Math.abs(seed * 13) % 26) * 24 * 60 * 60 * 1000 + (original % (8 * 60 * 60 * 1000));
+}
 
-  const fallbackScans = demoDataset.flatMap((item) =>
-    (Array.isArray(item.scans) ? item.scans : []).map((scan) => ({
-      batchID: item.batchId,
-      location: scan.location,
-      role: scan.role,
-      timestamp: normalizeTimestamp(scan.timestamp),
-    })),
-  );
-
-  return {
-    batches: fallbackBatches,
-    scans: fallbackScans,
-  };
+function toBatchStatus(batch) {
+  if (batch.recalled || batch.recallDate) return "Recalled";
+  if (batch.distributionBlocked || batch.blocked) return "Blocked";
+  if (batch.counterfeitFlagged || batch.flaggedCounterfeit || batch.counterfeit) return "Counterfeit";
+  if (Number(batch.suspiciousScans || 0) > 0) return "Flagged";
+  return "Verified";
 }
 
 function getMonthKey(ts) {
@@ -64,6 +54,18 @@ function getMonthKey(ts) {
 export default function AnalyticsPage() {
   const navigate = useNavigate();
   const session = getSession();
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    const refresh = () => setRefreshKey((value) => value + 1);
+    window.addEventListener("storage", refresh);
+    window.addEventListener("focus", refresh);
+
+    return () => {
+      window.removeEventListener("storage", refresh);
+      window.removeEventListener("focus", refresh);
+    };
+  }, []);
 
   const handleLogout = () => {
     clearSession();
@@ -72,11 +74,35 @@ export default function AnalyticsPage() {
   };
 
   const data = useMemo(() => {
-    const trackedBatches = listTrackedBatches();
-    const trackedScans = readScanEvents().slice().sort((a, b) => Number(a.timestamp || 0) - Number(b.timestamp || 0));
-    const fallback = trackedBatches.length === 0 && trackedScans.length === 0 ? getFallbackAnalyticsData() : null;
-    const batches = fallback ? fallback.batches : trackedBatches;
-    const scans = fallback ? fallback.scans : trackedScans;
+    const cacheBuster = refreshKey;
+    const catalog = getUnifiedProductCatalog();
+    const productAnalyses = catalog.map((product) => analyzeProduct(product.batchId));
+    const analysisMap = new Map(productAnalyses.map((entry) => [String(entry.batchId).toLowerCase(), entry]));
+
+    const batches = catalog.map((product) => {
+      const analysis = analysisMap.get(String(product.batchId || "").toLowerCase());
+      return {
+        batchId: product.batchId,
+        recalled: Boolean(product.recalled || product.recallDate),
+        recallDate: product.recallDate,
+        distributionBlocked: Boolean(product.distributionBlocked),
+        counterfeitFlagged: Boolean(product.counterfeitFlagged),
+        suspiciousScans: Number(analysis?.anomalies?.length || product.suspiciousScans || 0),
+        trustScore: Number(analysis?.trustScore ?? product.trustScore ?? 100),
+        updatedAt: product.statusUpdatedAt || product.recallDate || product.expiryDate || product.manufactureDate,
+        history: Array.isArray(product.history) ? product.history : [],
+        dataSource: product.dataSource || "demo",
+      };
+    });
+
+    const scans = productAnalyses.flatMap((analysis) =>
+      (Array.isArray(analysis.scans) ? analysis.scans : []).map((scan) => ({
+        batchID: analysis.batchId,
+        location: scan.location,
+        role: scan.role,
+        timestamp: normalizeTimestamp(scan.timestamp),
+      })),
+    );
 
     const suspiciousBatchIds = new Set(
       batches.filter((b) => Number(b.suspiciousScans || 0) > 0 || b.recalled).map((b) => String(b.batchId || "").toLowerCase()),
@@ -97,7 +123,29 @@ export default function AnalyticsPage() {
     }
 
     const monthMap = Object.fromEntries(recentMonthKeys.map((k) => [k, { scans: 0, flags: 0 }]));
-    scans.forEach((scan) => {
+    const timelineScans = [...scans];
+    const activeMonthCount = new Set(
+      scans
+        .map((scan) => getMonthKey(scan.timestamp))
+        .filter((key) => recentMonthKeys.includes(key)),
+    ).size;
+
+    // If data clusters into one month, seed timeline using catalog so 6-month charts remain informative.
+    if (activeMonthCount <= 1) {
+      catalog.forEach((product, productIndex) => {
+        const baseScans = Array.isArray(product.scans) ? product.scans : [];
+        baseScans.forEach((scan, scanIndex) => {
+          timelineScans.push({
+            batchID: product.batchId,
+            location: scan.location,
+            role: scan.role,
+            timestamp: shiftIntoLastSixMonths(scan.timestamp, productIndex * 29 + scanIndex),
+          });
+        });
+      });
+    }
+
+    timelineScans.forEach((scan) => {
       const key = getMonthKey(scan.timestamp);
       if (!monthMap[key]) return;
       monthMap[key].scans += 1;
@@ -114,11 +162,20 @@ export default function AnalyticsPage() {
 
     const maxScans = Math.max(...timeline.map((t) => t.scans), 1);
 
-    const statusBreakdown = [
-      { name: "Verified", batches: batches.filter((b) => !b.recalled && Number(b.suspiciousScans || 0) === 0).length, color: "#22c55e" },
-      { name: "Flagged", batches: batches.filter((b) => !b.recalled && Number(b.suspiciousScans || 0) > 0).length, color: "#f59e0b" },
-      { name: "Recalled", batches: batches.filter((b) => b.recalled).length, color: "#ef4444" },
-    ];
+    const statusPalette = {
+      Verified: "#22c55e",
+      Flagged: "#f59e0b",
+      Recalled: "#ef4444",
+      Blocked: "#2563eb",
+      Counterfeit: "#7c3aed",
+    };
+    const statusOrder = ["Verified", "Flagged", "Recalled", "Blocked", "Counterfeit"];
+    const statusCounter = { Verified: 0, Flagged: 0, Recalled: 0, Blocked: 0, Counterfeit: 0 };
+    batches.forEach((batch) => {
+      const status = toBatchStatus(batch);
+      statusCounter[status] = (statusCounter[status] || 0) + 1;
+    });
+    const statusBreakdown = statusOrder.map((name) => ({ name, batches: statusCounter[name] || 0, color: statusPalette[name] }));
 
     const trustDistribution = [
       { range: "90-100", pct: 0, color: "#22c55e" },
@@ -167,6 +224,8 @@ export default function AnalyticsPage() {
     ].filter(Boolean);
 
     return {
+      cacheBuster,
+      hasRealData: batches.some((batch) => batch.dataSource !== "demo"),
       totalBatches,
       totalScans,
       suspiciousScans,
@@ -179,12 +238,12 @@ export default function AnalyticsPage() {
       productJourney,
       activeStage: productJourney.length - 1,
     };
-  }, []);
+  }, [refreshKey]);
 
   const kpis = [
-    { icon: <Package size={22} />, label: "Total Batches", value: String(data.totalBatches), change: "on-chain tracked", up: true },
-    { icon: <Users size={22} />, label: "Total Scans", value: String(data.totalScans), change: "real scan logs", up: true },
-    { icon: <ShieldCheck size={22} />, label: "Average Trust Score", value: `${data.avgTrust}/100`, change: "derived live", up: true },
+    { icon: <Package size={22} />, label: "Total Batches", value: String(data.totalBatches), change: data.hasRealData ? "demo + on-chain tracked" : "demo tracked", up: true },
+    { icon: <Users size={22} />, label: "Total Scans", value: String(data.totalScans), change: "demo + real scan logs", up: true },
+    { icon: <ShieldCheck size={22} />, label: "Average Trust Score", value: `${data.avgTrust}/100`, change: "AI-derived", up: true },
     { icon: <AlertTriangle size={22} />, label: "Suspicious Scans", value: String(data.suspiciousScans), change: "risk signals", up: false },
   ];
 
@@ -222,7 +281,9 @@ export default function AnalyticsPage() {
         <div className="analytics-header">
           <Motion.h1 {...fadeUp}>Platform Analytics</Motion.h1>
           <Motion.p {...fadeUp} transition={{ delay: 0.1 }}>
-            Live analytics from your tracked on-chain batches and real scan logs.
+            {data.hasRealData
+              ? "Hybrid analytics powered by demo data + your real blockchain product activity."
+              : "Demo analytics with seeded six-month timeline and AI-based risk signals."}
           </Motion.p>
         </div>
 
@@ -317,7 +378,7 @@ export default function AnalyticsPage() {
                 </div>
               ))}
             </div>
-            <p className="trust-note">Derived from real verified batches tracked in your current app instance.</p>
+            <p className="trust-note">Derived from AI anomaly scoring across merged demo and real product data.</p>
           </Motion.div>
         </div>
 

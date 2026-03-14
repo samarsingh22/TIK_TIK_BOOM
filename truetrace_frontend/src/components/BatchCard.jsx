@@ -3,9 +3,9 @@ import { calculateTrustScore } from "../ai/trustScore";
 export default function BatchCard({ batch }) {
   if (!batch) return null;
 
-  const trustScore =
+  const trustResult =
     typeof batch.trustScore === "number"
-      ? batch.trustScore
+      ? { trustScore: batch.trustScore, riskLevel: String(batch.riskLevel || "LOW").toUpperCase() }
       : calculateTrustScore({
           recalled: Boolean(batch.recalled),
           suspiciousScans: batch.suspiciousScans || 0,
@@ -45,7 +45,7 @@ export default function BatchCard({ batch }) {
         </div>
         <div className="result-item">
           <div className="label">Trust Score</div>
-          <div className="value">{trustScore}/100</div>
+          <div className="value">{trustResult.trustScore}/100 ({trustResult.riskLevel})</div>
         </div>
       </div>
     </div>

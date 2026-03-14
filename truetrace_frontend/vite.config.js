@@ -37,6 +37,8 @@ function geminiDevProxyPlugin(geminiApiKey = '', geminiModel = 'gemini-2.0-flash
       const parsed = raw ? JSON.parse(raw) : {}
       const messages = Array.isArray(parsed.messages) ? parsed.messages : []
       const userInput = String(parsed.userInput || '').trim()
+      const platformContext = parsed.platformContext && typeof parsed.platformContext === 'object' ? parsed.platformContext : {}
+      const platformContextText = String(parsed.platformContextText || '').trim()
 
       if (!userInput) {
         res.statusCode = 400
@@ -49,11 +51,19 @@ function geminiDevProxyPlugin(geminiApiKey = '', geminiModel = 'gemini-2.0-flash
         systemInstruction: {
           parts: [
             {
-              text: 'You are True Trace AI assistant. Help users summarize content, explain platform analytics, trust score, anomalies, regulator actions, and supply-chain traceability in concise clear language.',
+              text: 'You are True Trace AI assistant. Use only True Trace platform data provided in the context and chat history. Do not invent facts, and do not use outside/world knowledge as authoritative data for this app. If requested data is missing from context, clearly say it is not available in current platform data.',
             },
           ],
         },
         contents: [
+          {
+            role: 'user',
+            parts: [
+              {
+                text: `True Trace platform context:\n${platformContextText}\nRaw context JSON:\n${JSON.stringify(platformContext)}`,
+              },
+            ],
+          },
           ...messages.filter((m) => m && (m.role === 'user' || m.role === 'model') && Array.isArray(m.parts)).slice(-12),
           { role: 'user', parts: [{ text: userInput }] },
         ],

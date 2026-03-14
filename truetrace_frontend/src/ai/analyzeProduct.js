@@ -1,7 +1,7 @@
-import demoDataset from "./demoDataset";
 import { detectAnomalies } from "./anomalyDetection";
 import { getScanHistory } from "./scanLogger";
 import { classifyThreat } from "./threatClassifier";
+import { getUnifiedProductByBatchId } from "./productCatalog";
 
 function normalizeTimestamp(timestamp) {
   if (typeof timestamp === "number" && Number.isFinite(timestamp)) {
@@ -22,8 +22,7 @@ function toScanEvent(batchId, scan) {
 }
 
 function findProduct(batchId) {
-  const key = String(batchId || "").trim().toLowerCase();
-  return demoDataset.find((product) => String(product?.batchId || "").trim().toLowerCase() === key) || null;
+  return getUnifiedProductByBatchId(batchId);
 }
 
 function getCombinedScans(product) {
@@ -52,14 +51,15 @@ export function analyzeProduct(batchId) {
     recallDate: product.recallDate,
   });
   const threatLevel = classifyThreat(anomalyResult);
-  const trustScore = calculateAnalysisTrustScore(anomalyResult.anomalies);
+  const anomalyDetails = Array.isArray(anomalyResult.anomalyObjects) ? anomalyResult.anomalyObjects : anomalyResult.anomalies;
+  const trustScore = calculateAnalysisTrustScore(anomalyDetails);
 
   return {
     batchId: product.batchId,
     productName: product.productName,
     trustScore,
     threatLevel,
-    anomalies: anomalyResult.anomalies,
+    anomalies: anomalyDetails,
     transfers: Array.isArray(product.transfers) ? product.transfers : [],
     scans,
   };

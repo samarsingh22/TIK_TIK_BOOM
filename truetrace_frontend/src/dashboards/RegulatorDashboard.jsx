@@ -1,20 +1,39 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import DashboardPage from "../features/dashboard/DashboardPage";
 import { ROLES } from "../config/sentinelChain";
-import demoDataset, { getProductByBatchId, updateProductStatus } from "../ai/demoDataset";
+import { getUnifiedProductCatalog, getUnifiedProductByBatchId, setUnifiedProductStatus } from "../ai/productCatalog";
 import { analyzeProduct } from "../ai/analyzeProduct";
 import AIThreatCard from "../components/AIThreatCard";
 
 function RegulatorThreatControls() {
-  const [selectedBatchId, setSelectedBatchId] = useState(demoDataset[0]?.batchId || "");
+  const [refreshKey, setRefreshKey] = useState(0);
+  const catalog = useMemo(() => getUnifiedProductCatalog(), [refreshKey]);
+  const [selectedBatchId, setSelectedBatchId] = useState(catalog[0]?.batchId || "");
   const [statusMessage, setStatusMessage] = useState("");
+
+  useEffect(() => {
+    const refresh = () => setRefreshKey((value) => value + 1);
+    window.addEventListener("storage", refresh);
+    window.addEventListener("focus", refresh);
+
+    return () => {
+      window.removeEventListener("storage", refresh);
+      window.removeEventListener("focus", refresh);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!selectedBatchId && catalog[0]?.batchId) {
+      setSelectedBatchId(catalog[0].batchId);
+    }
+  }, [catalog, selectedBatchId]);
 
   const analysis = useMemo(() => {
     if (!selectedBatchId) return null;
     return analyzeProduct(selectedBatchId);
   }, [selectedBatchId]);
 
-  const selectedProduct = useMemo(() => getProductByBatchId(selectedBatchId), [selectedBatchId, statusMessage]);
+  const selectedProduct = useMemo(() => getUnifiedProductByBatchId(selectedBatchId), [selectedBatchId, statusMessage, refreshKey]);
   const riskyThreat = analysis && ["HIGH", "CRITICAL"].includes(String(analysis.threatLevel || "").toUpperCase());
   const topAnomaly = analysis?.anomalies?.[0] || null;
   const latestScan = analysis?.scans?.[analysis.scans.length - 1] || null;
@@ -44,9 +63,10 @@ function RegulatorThreatControls() {
     const patch = actionPatches[actionType];
     if (!patch) return;
 
-    const updated = updateProductStatus(selectedBatchId, patch);
+    const updated = setUnifiedProductStatus(selectedBatchId, patch);
     if (updated) {
       setStatusMessage(`${updated.batchId} updated: ${updated.regulatorAction}.`);
+      setRefreshKey((value) => value + 1);
     }
   };
 
@@ -55,7 +75,7 @@ function RegulatorThreatControls() {
       <div className="regulator-controls-header">
         <h3>Regulator AI Threat Controls</h3>
         <select value={selectedBatchId} onChange={(event) => setSelectedBatchId(event.target.value)}>
-          {demoDataset.map((product) => (
+          {catalog.map((product) => (
             <option key={product.batchId} value={product.batchId}>
               {product.batchId}
             </option>
@@ -69,7 +89,7 @@ function RegulatorThreatControls() {
           threatLevel={analysis.threatLevel}
           reason={topAnomaly?.description || "No anomaly detected"}
           location={latestScan?.location || "Unknown"}
-          timestamp={latestScan?.timestamp || Date.now()}
+          timestamp={latestScan?.timestamp || selectedProduct?.statusUpdatedAt || ""}
         />
       )}
 

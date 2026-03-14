@@ -5,12 +5,13 @@ import {
   createBatchTx,
   transferBatchTx,
   recallBatchTx,
+  getRegulatorAddress,
   verifyBatchOnChain,
 } from "../services/sentinelChainClient";
 import { resolveBatchIdFromInput } from "../services/qrVerification";
 import { detectAnomalies } from "../ai/anomalyDetection";
 import { calculateTrustScore } from "../ai/trustScore";
-import { clearScanEvents, getBatchScanEvents, getCurrentLocation, logScanEvent, readScanEvents } from "../ai/scanLogger";
+import { clearScanEvents, getBatchScanEvents, getCurrentLocation, getDeviceFingerprint, logScanEvent, readScanEvents } from "../ai/scanLogger";
 import { listTrackedBatches, markBatchRecalled, markBatchTransferred, upsertTrackedBatch } from "../services/batchStore";
 
 const EMPTY_FORM = {
@@ -38,6 +39,7 @@ export function useSentinelDashboard(options = {}) {
   const [batchData, setBatchData] = useState(null);
   const [trackedBatches, setTrackedBatches] = useState([]);
   const [recentScanEvents, setRecentScanEvents] = useState([]);
+  const [regulatorAddress, setRegulatorAddress] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -57,6 +59,36 @@ export function useSentinelDashboard(options = {}) {
       setSuccessMsg("");
     }, 5000);
   };
+
+  const extractChainErrorMessage = (error) => {
+    const candidates = [
+      error?.shortMessage,
+      error?.reason,
+      error?.info?.error?.message,
+      error?.message,
+    ].filter(Boolean);
+
+    const message = String(candidates[0] || "");
+    if (message.includes("Only regulator can recall")) {
+      return regulatorAddress
+        ? `Recall failed. Connected wallet is not the on-chain regulator. Regulator address: ${regulatorAddress}`
+        : "Recall failed. Connected wallet is not the on-chain regulator.";
+    }
+
+    if (message.includes("Batch does not exist")) {
+      return "Recall failed. That batch does not exist on-chain.";
+    }
+
+    if (message.includes("user rejected") || message.includes("rejected")) {
+      return "Recall transaction was rejected in the wallet.";
+    }
+
+    return message || "Recall failed on-chain.";
+  };
+
+  const walletIsRegulator = account && regulatorAddress
+    ? String(account).toLowerCase() === String(regulatorAddress).toLowerCase()
+    : false;
 
   const resetFlows = () => {
     setForm(EMPTY_FORM);
@@ -108,9 +140,16 @@ export function useSentinelDashboard(options = {}) {
   async function connectWallet() {
     try {
       const client = await connectWalletClient();
+      const nextRegulatorAddress = await getRegulatorAddress(client.contract).catch(() => "");
       setAccount(client.account);
       setContract(client.contract);
-      displayMessage("Wallet connected successfully.", "success");
+      setRegulatorAddress(nextRegulatorAddress);
+
+      if (nextRegulatorAddress && String(client.account).toLowerCase() === String(nextRegulatorAddress).toLowerCase()) {
+        displayMessage("Wallet connected successfully. On-chain regulator detected.", "success");
+      } else {
+        displayMessage("Wallet connected successfully.", "success");
+      }
     } catch (error) {
       if (error?.message?.includes("MetaMask")) {
         displayMessage(`Please install MetaMask to use ${APP_NAME}.`, "error");
@@ -123,6 +162,7 @@ export function useSentinelDashboard(options = {}) {
   function disconnectWallet() {
     setAccount(null);
     setContract(null);
+    setRegulatorAddress("");
     displayMessage("Wallet disconnected.", "success");
   }
 
@@ -206,6 +246,11 @@ export function useSentinelDashboard(options = {}) {
       return;
     }
 
+    if (regulatorAddress && !walletIsRegulator) {
+      displayMessage(`Recall blocked. Connected wallet is not the on-chain regulator. Regulator: ${regulatorAddress}`, "error");
+      return;
+    }
+
     try {
       setLoading(true);
       const txHash = await recallBatchTx(contract, recallId);
@@ -214,8 +259,8 @@ export function useSentinelDashboard(options = {}) {
       refreshTrackedBatches();
       setForm((prev) => ({ ...prev, recallId: "" }));
       displayMessage(`Batch ${recallId} has been successfully recalled.`, "success");
-    } catch {
-      displayMessage("Recall failed. Ensure you have Regulator privileges.", "error");
+    } catch (error) {
+      displayMessage(extractChainErrorMessage(error), "error");
     } finally {
       setLoading(false);
     }
@@ -239,29 +284,37 @@ export function useSentinelDashboard(options = {}) {
 
       const batch = await verifyBatchOnChain(contract, normalizedBatchId);
       const location = getCurrentLocation();
-      logScanEvent({ batchID: batch.batchId, timestamp: Date.now(), location });
-
-      const scanEvents = readScanEvents();
-      const anomaly = detectAnomalies(scanEvents, batch.batchId, location);
-      const trustScore = calculateTrustScore({
-        recalled: batch.recalled,
-        suspiciousScans: anomaly.suspiciousScans,
+      logScanEvent({
+        batchID: batch.batchId,
+        timestamp: Date.now(),
+        location,
+        scannerRole: role,
+        deviceFingerprint: getDeviceFingerprint(),
       });
+
+      const scanEvents = getBatchScanEvents(batch.batchId);
+      const anomaly = detectAnomalies(scanEvents, {
+        batchId: batch.batchId,
+        createdAt: batch.mfgDate,
+        recalled: batch.recalled,
+      });
+      const trust = calculateTrustScore({ ...anomaly, recalled: batch.recalled });
 
       setBatchData({
         ...batch,
         location,
-        trustScore,
-        anomalyFlags: anomaly.flags,
+        trustScore: trust.trustScore,
+        anomalyFlags: anomaly.anomalies,
         suspiciousScans: anomaly.suspiciousScans,
         scansObserved: getBatchScanEvents(batch.batchId).length,
+        riskLevel: trust.riskLevel,
       });
 
       upsertTrackedBatch(
         {
           ...batch,
           lastLocation: location,
-          trustScore,
+          trustScore: trust.trustScore,
           suspiciousScans: anomaly.suspiciousScans,
           scansObserved: getBatchScanEvents(batch.batchId).length,
         },
@@ -293,6 +346,8 @@ export function useSentinelDashboard(options = {}) {
     batchData,
     trackedBatches,
     recentScanEvents,
+    regulatorAddress,
+    walletIsRegulator,
     setField,
     handleRoleChange,
     refreshRecentScanEvents,

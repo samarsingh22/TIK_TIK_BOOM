@@ -1,7 +1,7 @@
-import demoDataset from "./demoDataset";
+import { getUnifiedProductCatalog } from "./productCatalog";
 
 const FIVE_MINUTES = 5 * 60 * 1000;
-const TWO_MINUTES = 2 * 60 * 1000;
+const TEN_MINUTES = 10 * 60 * 1000;
 
 function normalizeTimestamp(timestamp) {
   if (typeof timestamp === "number" && Number.isFinite(timestamp)) {
@@ -20,14 +20,16 @@ function normalizeScanEvent(event) {
   return {
     batchId: String(event?.batchId ?? event?.batchID ?? "").trim(),
     location: String(event?.location || "").trim(),
-    role: String(event?.role || "Unknown").trim(),
+    scannerRole: String(event?.scannerRole ?? event?.role ?? "Unknown").trim(),
+    role: String(event?.scannerRole ?? event?.role ?? "Unknown").trim(),
+    deviceFingerprint: String(event?.deviceFingerprint || "unknown-device").trim(),
     timestamp: normalizeTimestamp(event?.timestamp),
   };
 }
 
 function resolveBatchProduct(batchId, options = {}) {
   const key = String(batchId || "").trim().toLowerCase();
-  const catalog = Array.isArray(options.catalog) ? options.catalog : demoDataset;
+  const catalog = Array.isArray(options.catalog) ? options.catalog : getUnifiedProductCatalog();
 
   return (
     options.batchData ||
@@ -51,7 +53,7 @@ function detectLocationJumpAnomaly(batchScans) {
       const next = batchScans[compareIndex];
       const timeGap = next.timestamp - current.timestamp;
 
-      if (timeGap > FIVE_MINUTES) {
+      if (timeGap > TEN_MINUTES) {
         break;
       }
 
@@ -59,7 +61,7 @@ function detectLocationJumpAnomaly(batchScans) {
         return {
           type: "location_jump",
           risk: "HIGH",
-          description: "Location jump detected",
+          description: "Impossible location jump",
         };
       }
     }
@@ -72,15 +74,15 @@ function detectScanFloodAnomaly(batchScans) {
   let left = 0;
 
   for (let right = 0; right < batchScans.length; right += 1) {
-    while (batchScans[right].timestamp - batchScans[left].timestamp > TWO_MINUTES) {
+    while (batchScans[right].timestamp - batchScans[left].timestamp > FIVE_MINUTES) {
       left += 1;
     }
 
-    if (right - left + 1 > 10) {
+    if (batchScans[right].timestamp - batchScans[left].timestamp <= FIVE_MINUTES && right - left + 1 > 5) {
       return {
         type: "scan_flood",
-        risk: "HIGH",
-        description: "Scan flood detected",
+        risk: "MEDIUM",
+        description: "Excessive scan frequency",
       };
     }
   }
@@ -95,8 +97,8 @@ function detectUnauthorizedScanAnomaly(batchScans, batchProduct) {
   }
 
   const unauthorizedScan = batchScans.find((scan) => {
-    const role = String(scan.role || "").trim().toLowerCase();
-    return scan.timestamp < distributorReceivedAt && role !== "manufacturer";
+    const role = String(scan.scannerRole || scan.role || "").trim().toLowerCase();
+    return scan.timestamp < distributorReceivedAt && role === "distributor";
   });
 
   if (!unauthorizedScan) {
@@ -106,7 +108,34 @@ function detectUnauthorizedScanAnomaly(batchScans, batchProduct) {
   return {
     type: "unauthorized_scan",
     risk: "HIGH",
-    description: "Unauthorized scan detected before distributor received product",
+    description: "Unauthorized distributor transfer",
+  };
+}
+
+function detectBeforeCreationAnomaly(batchScans, batchProduct, options = {}) {
+  const createdAt = normalizeTimestamp(
+    options.createdAt || options.productCreatedAt || batchProduct?.createdAt || batchProduct?.manufactureDate || batchProduct?.mfgDate,
+  );
+
+  if (!createdAt) return null;
+  const violatingScan = batchScans.find((scan) => scan.timestamp > 0 && scan.timestamp < createdAt);
+  if (!violatingScan) return null;
+
+  return {
+    type: "scan_before_creation",
+    risk: "HIGH",
+    description: "Scan before product creation time",
+  };
+}
+
+function detectDeviceMismatchAnomaly(batchScans) {
+  const uniqueDevices = new Set(batchScans.map((scan) => scan.deviceFingerprint).filter(Boolean));
+  if (uniqueDevices.size < 3 || batchScans.length < 4) return null;
+
+  return {
+    type: "device_mismatch",
+    risk: "MEDIUM",
+    description: "Device mismatch",
   };
 }
 
@@ -128,13 +157,48 @@ function detectPostRecallAnomaly(batchScans, batchProduct, options = {}) {
 
   return {
     type: "post_recall_scan",
-    risk: "CRITICAL",
+    risk: "HIGH",
     description: "Product was scanned after recall",
   };
 }
 
-export function detectAnomalies(scanEvents, batchId, currentLocation, options = {}) {
-  const batchKey = String(batchId || "").trim();
+function calculateRiskLevel(anomalyObjects = []) {
+  if (!Array.isArray(anomalyObjects) || anomalyObjects.length === 0) return "LOW";
+
+  if (anomalyObjects.some((item) => String(item.risk || "").toUpperCase() === "HIGH")) {
+    return "HIGH";
+  }
+
+  return "MEDIUM";
+}
+
+function resolveSupplyChainContext(arg2, arg3, arg4) {
+  // New signature: detectAnomalies(scanHistory, supplyChainHistory)
+  if (arg2 && (Array.isArray(arg2) || typeof arg2 === "object") && typeof arg2 !== "string") {
+    return {
+      batchId: String(arg2?.batchId || arg2?.id || "").trim(),
+      currentLocation: "",
+      options: {
+        supplyChainHistory: arg2,
+        createdAt: arg2?.createdAt || arg2?.manufactureDate || arg2?.mfgDate,
+        recallDate: arg2?.recallDate,
+        recalled: arg2?.recalled,
+        product: arg2,
+      },
+    };
+  }
+
+  return {
+    batchId: String(arg2 || "").trim(),
+    currentLocation: arg3,
+    options: arg4 || {},
+  };
+}
+
+export function detectAnomalies(scanEvents, arg2, arg3, arg4 = {}) {
+  const context = resolveSupplyChainContext(arg2, arg3, arg4);
+  const batchKey = context.batchId || String(scanEvents?.[0]?.batchId ?? scanEvents?.[0]?.batchID ?? "").trim();
+  const options = context.options;
   const batchProduct = resolveBatchProduct(batchKey, options);
   const normalizedScans = Array.isArray(scanEvents)
     ? scanEvents
@@ -147,28 +211,37 @@ export function detectAnomalies(scanEvents, batchId, currentLocation, options = 
   const locationJump = detectLocationJumpAnomaly(normalizedScans);
   const scanFlood = detectScanFloodAnomaly(normalizedScans);
   const unauthorizedScan = detectUnauthorizedScanAnomaly(normalizedScans, batchProduct);
+  const beforeCreation = detectBeforeCreationAnomaly(normalizedScans, batchProduct, options);
+  const deviceMismatch = detectDeviceMismatchAnomaly(normalizedScans);
   const postRecallScan = detectPostRecallAnomaly(normalizedScans, batchProduct, options);
 
   if (locationJump) anomalies.push(locationJump);
   if (scanFlood) anomalies.push(scanFlood);
   if (unauthorizedScan) anomalies.push(unauthorizedScan);
+  if (beforeCreation) anomalies.push(beforeCreation);
+  if (deviceMismatch) anomalies.push(deviceMismatch);
   if (postRecallScan) anomalies.push(postRecallScan);
 
   const distinctLocations = new Set(
     normalizedScans.map((scan) => normalizeLocation(scan.location)).filter(Boolean),
   );
 
-  if (currentLocation) {
-    distinctLocations.add(normalizeLocation(currentLocation));
+  if (context.currentLocation) {
+    distinctLocations.add(normalizeLocation(context.currentLocation));
   }
+
+  const anomalyDescriptions = anomalies.map((anomaly) => anomaly.description);
 
   return {
     batchId: batchKey,
-    anomalies,
-    flags: anomalies.map((anomaly) => anomaly.description),
+    riskLevel: calculateRiskLevel(anomalies),
+    anomalies: anomalyDescriptions,
+    anomalyObjects: anomalies,
+    flags: anomalyDescriptions,
     suspiciousScans: anomalies.length > 0 ? normalizedScans.length : 0,
     recentScans: normalizedScans.length,
     citiesDetected: distinctLocations.size,
+    deviceCount: new Set(normalizedScans.map((scan) => scan.deviceFingerprint).filter(Boolean)).size,
   };
 }
 

@@ -3,7 +3,7 @@ import { Html5Qrcode } from "html5-qrcode";
 import { verifyBatch } from "../blockchain/contract";
 import { calculateTrustScore } from "../ai/trustScore";
 import { detectAnomalies } from "../ai/anomalyDetection";
-import { getBatchScanEvents, getCurrentLocation, logScanEvent, readScanEvents } from "../ai/scanLogger";
+import { getBatchScanEvents, getCurrentLocation, getDeviceFingerprint, logScanEvent } from "../ai/scanLogger";
 import { upsertTrackedBatch } from "../services/batchStore";
 import { resolveBatchIdFromInput } from "../services/qrVerification";
 
@@ -42,27 +42,37 @@ export default function QRScanner({ onVerified, onError, onScanLogged }) {
     try {
       const chainData = await verifyBatch(batchId);
       const location = getCurrentLocation();
-      logScanEvent({ batchID: chainData.batchId, timestamp: Date.now(), location });
-      const anomaly = detectAnomalies(readScanEvents(), chainData.batchId, location);
-      const trustScore = calculateTrustScore({
-        recalled: chainData.recalled,
-        suspiciousScans: anomaly.suspiciousScans,
+      logScanEvent({
+        batchID: chainData.batchId,
+        timestamp: Date.now(),
+        location,
+        scannerRole: "Consumer",
+        deviceFingerprint: getDeviceFingerprint(),
       });
+
+      const scanHistory = getBatchScanEvents(chainData.batchId);
+      const anomaly = detectAnomalies(scanHistory, {
+        batchId: chainData.batchId,
+        createdAt: chainData.mfgDate,
+        recalled: chainData.recalled,
+      });
+      const trust = calculateTrustScore({ ...anomaly, recalled: chainData.recalled });
 
       const verifiedData = {
         ...chainData,
         location,
-        trustScore,
-        anomalyFlags: anomaly.flags,
+        trustScore: trust.trustScore,
+        anomalyFlags: anomaly.anomalies,
         suspiciousScans: anomaly.suspiciousScans,
         scansObserved: getBatchScanEvents(chainData.batchId).length,
+        riskLevel: trust.riskLevel,
       };
 
       upsertTrackedBatch(
         {
           ...chainData,
           lastLocation: location,
-          trustScore,
+          trustScore: trust.trustScore,
           suspiciousScans: anomaly.suspiciousScans,
           scansObserved: getBatchScanEvents(chainData.batchId).length,
         },

@@ -34,6 +34,15 @@ export async function connectWalletClient() {
   };
 }
 
+export async function getRegulatorAddress(contract) {
+  if (!contract?.regulator) {
+    throw new Error("Connected contract does not expose regulator().");
+  }
+
+  const regulator = await contract.regulator();
+  return String(regulator || "");
+}
+
 export async function createBatchTx(contract, payload) {
   const { batchId, productName, mfgDate, expDate } = payload;
   const tx = await contract.createBatch(batchId, productName, mfgDate, expDate);

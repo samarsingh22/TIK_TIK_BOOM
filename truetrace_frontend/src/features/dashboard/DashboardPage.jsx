@@ -29,6 +29,8 @@ function DashboardPage({ initialRole = ROLES.CONSUMER, lockRole = false, bottomC
     batchData,
     trackedBatches,
     recentScanEvents,
+    regulatorAddress,
+    walletIsRegulator,
     setField,
     handleRoleChange,
     refreshRecentScanEvents,
@@ -178,6 +180,11 @@ function DashboardPage({ initialRole = ROLES.CONSUMER, lockRole = false, bottomC
               <span className={`network-dot ${account ? "active" : ""}`}></span>
               {NETWORK_NAME} {account ? "• Connected" : "• Disconnected"}
             </div>
+            {effectiveRole === ROLES.REGULATOR && account && regulatorAddress && (
+              <div className="network-badge" style={{ background: "var(--card)", border: "1px solid var(--border)", padding: "6px 12px", borderRadius: "999px" }}>
+                {walletIsRegulator ? "On-chain Regulator Wallet" : `Regulator: ${regulatorAddress.slice(0, 6)}...${regulatorAddress.slice(-4)}`}
+              </div>
+            )}
           </div>
         </div>
 

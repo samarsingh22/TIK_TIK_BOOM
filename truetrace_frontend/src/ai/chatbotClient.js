@@ -1,3 +1,5 @@
+import { buildPlatformChatContext, buildPlatformChatContextText } from "./chatbotPlatformContext";
+
 const CHATBOT_API_ENDPOINT = "/api/gemini-chat";
 
 function formatChatbotError(errorText) {
@@ -35,12 +37,17 @@ function toGeminiHistory(messages) {
 
 export async function sendChatMessageToGemini({ messages, userInput }) {
   const history = toGeminiHistory(messages);
+  const platformContext = buildPlatformChatContext();
+  const platformContextText = buildPlatformChatContextText();
+
   const response = await fetch(CHATBOT_API_ENDPOINT, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       messages: history,
       userInput,
+      platformContext,
+      platformContextText,
     }),
   });
 

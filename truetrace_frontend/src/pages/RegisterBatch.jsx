@@ -6,6 +6,7 @@ import { AlertTriangle, ArrowRight, CheckCircle, Download, PackagePlus } from "l
 import { APP_NAME } from "../config/sentinelChain";
 import { createBatch } from "../blockchain/contract";
 import { buildQrPayload } from "../services/qrVerification";
+import { upsertTrackedBatch } from "../services/batchStore";
 import { clearConnectedWallet, clearSession, getSession } from "../utils/authStorage";
 
 const EMPTY = { batchId: "", productName: "", mfgDate: "", expDate: "" };
@@ -54,6 +55,20 @@ export default function RegisterBatch() {
 
     try {
       const hash = await createBatch(form.batchId, form.productName, form.mfgDate, form.expDate);
+      upsertTrackedBatch(
+        {
+          batchId: form.batchId,
+          productName: form.productName,
+          mfgDate: form.mfgDate,
+          expDate: form.expDate,
+          recalled: false,
+          trustScore: 100,
+          suspiciousScans: 0,
+          scansObserved: 0,
+          productStatus: "ACTIVE",
+        },
+        { eventType: "created", txHash: hash },
+      );
       setTxHash(hash);
       setRegisteredBatch({ ...form });
       setSuccessMsg("Batch registered on-chain successfully.");
