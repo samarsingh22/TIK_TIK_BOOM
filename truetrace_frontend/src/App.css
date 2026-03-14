@@ -1563,6 +1563,12 @@
   color: #64748b;
 }
 
+.timeline-node.current {
+  background: #dbeafe;
+  color: #1d4ed8;
+  box-shadow: 0 0 0 3px #bfdbfe;
+}
+
 .timeline-line {
   width: 2px;
   min-height: 48px;
@@ -1587,9 +1593,30 @@
   text-align: center;
 }
 
+.timeline-card--current {
+  border-color: #93c5fd;
+  background: #f0f9ff;
+}
+
+.timeline-card--pending {
+  opacity: 0.5;
+}
+
 .timeline-role {
   font-weight: 700;
   color: var(--text);
+}
+
+.timeline-current-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 0.7rem;
+  font-weight: 700;
+  vertical-align: middle;
 }
 
 .timeline-wallet,

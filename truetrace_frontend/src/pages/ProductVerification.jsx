@@ -67,47 +67,51 @@ function findTrackedBatch(batchId) {
   return listTrackedBatches().find((item) => String(item.batchId || "").trim().toLowerCase() === key) || null;
 }
 
-function buildSupplyTimeline(batchData, trackedBatch) {
-  const defaultRoles = ["Manufacturer", "Distributor", "Retailer", "Consumer"];
+function buildSupplyTimeline(batchData, trackedBatch, manufacturerWallet) {
+  const STAGE_ROLES = ["Manufacturer", "Distributor", "Retailer", "Consumer"];
   const history = Array.isArray(trackedBatch?.history) ? trackedBatch.history : [];
-  const transferEvents = history.filter((entry) => String(entry?.type || "").toLowerCase() === "transferred");
 
-  if (transferEvents.length === 0) {
-    return defaultRoles.map((role) => ({
-      role,
-      wallet: role === "Consumer" ? batchData.owner : "Pending",
-      timestamp: role === "Manufacturer" ? toTimestamp(batchData.mfgDate) : role === "Consumer" ? Date.now() : 0,
-      completed: role === "Manufacturer" || role === "Consumer",
-    }));
+  const createdEvent = history.find((e) => String(e?.type || "").toLowerCase() === "created");
+  const transferEvents = history
+    .filter((e) => String(e?.type || "").toLowerCase() === "transferred")
+    .sort((a, b) => Number(new Date(a.at || 0)) - Number(new Date(b.at || 0)));
+
+  // Stage index: 0=Manufacturer, 1=Distributor, 2=Retailer, 3=Consumer
+  const currentStageIndex = Math.min(transferEvents.length, 3);
+
+  // Wallet for each stage. Transfer event owner is the recipient at that stage.
+  const stageWallets = [
+    manufacturerWallet && manufacturerWallet !== "Unknown" ? manufacturerWallet : null,
+    transferEvents[0]?.owner || null,
+    transferEvents[1]?.owner || null,
+    transferEvents[2]?.owner || null,
+  ];
+  // Authoritative chain owner always wins for the current stage
+  if (batchData.owner) {
+    stageWallets[currentStageIndex] = batchData.owner;
   }
 
-  const items = [
-    {
-      role: "Manufacturer",
-      wallet: transferEvents[0]?.owner || batchData.owner,
-      timestamp: toTimestamp(batchData.mfgDate),
-      completed: true,
-    },
+  // Timestamp for each stage
+  const mfgTs = toTimestamp(createdEvent?.at || trackedBatch?.createdAt || batchData.manufactureDate);
+  const stageTimestamps = [
+    mfgTs,
+    toTimestamp(transferEvents[0]?.at),
+    toTimestamp(transferEvents[1]?.at),
+    toTimestamp(transferEvents[2]?.at),
   ];
 
-  transferEvents.forEach((event, index) => {
-    const mappedRole = defaultRoles[index + 1] || `Checkpoint ${index + 1}`;
-    items.push({
-      role: mappedRole,
-      wallet: event.owner || "Unknown",
-      timestamp: toTimestamp(event.at || event.timestamp),
-      completed: true,
-    });
+  return STAGE_ROLES.map((role, index) => {
+    const isCurrent = index === currentStageIndex;
+    const isCompleted = index < currentStageIndex;
+    const isPending = index > currentStageIndex;
+    return {
+      role,
+      wallet: isPending ? "Pending" : (stageWallets[index] || "Unknown"),
+      timestamp: isPending ? 0 : (stageTimestamps[index] || 0),
+      completed: isCompleted,
+      current: isCurrent,
+    };
   });
-
-  items.push({
-    role: "Current Owner",
-    wallet: batchData.owner,
-    timestamp: Date.now(),
-    completed: true,
-  });
-
-  return items;
 }
 
 function buildScanChartData(totalScans, suspiciousScans) {
@@ -289,7 +293,7 @@ export default function ProductVerification() {
     const createdEvent = history.find((entry) => String(entry?.type || "").toLowerCase() === "created");
     return createdEvent?.owner || trackedBatch?.owner || batchData?.owner || "Unknown";
   }, [trackedBatch, batchData]);
-  const timelineItems = useMemo(() => (batchData ? buildSupplyTimeline(batchData, trackedBatch) : []), [batchData, trackedBatch]);
+  const timelineItems = useMemo(() => (batchData ? buildSupplyTimeline(batchData, trackedBatch, manufacturerWallet) : []), [batchData, trackedBatch, manufacturerWallet]);
   const scanChartData = useMemo(
     () => buildScanChartData(batchData?.scansObserved || 0, batchData?.suspiciousScans || 0),
     [batchData],
