@@ -127,5 +127,8 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react(), geminiDevProxyPlugin(geminiApiKey, geminiModel)],
+    build: {
+      chunkSizeWarningLimit: 3000,
+    },
   }
 })
