@@ -2,6 +2,55 @@ import { buildPlatformChatContext, buildPlatformChatContextText } from "./chatbo
 
 const CHATBOT_API_ENDPOINT = "/api/gemini-chat";
 
+function buildQueryContext(platformContext, userInput) {
+  const query = String(userInput || "").trim().toLowerCase();
+  if (!query) {
+    return {
+      matchedProducts: [],
+      matchedTopAnomalies: [],
+      asksForProcess: false,
+      asksForScans: false,
+      asksForTransfers: false,
+    };
+  }
+
+  const products = Array.isArray(platformContext?.products) ? platformContext.products : [];
+  const matchedProducts = products
+    .filter((product) => {
+      const batchId = String(product.batchId || "").toLowerCase();
+      const productName = String(product.productName || "").toLowerCase();
+      return (batchId && query.includes(batchId)) || (productName && query.includes(productName));
+    })
+    .slice(0, 8)
+    .map((product) => ({
+      batchId: product.batchId,
+      productName: product.productName,
+      status: product.status,
+      trustScore: product.trustScore,
+      threatLevel: product.threatLevel,
+      anomalyCount: product.anomalyCount,
+      scanCount: product.scanCount,
+      transferCount: product.transferCount,
+    }));
+
+  const topAnomalies = Array.isArray(platformContext?.topAnomalies) ? platformContext.topAnomalies : [];
+  const matchedTopAnomalies = topAnomalies
+    .filter((item) => {
+      const batchId = String(item.batchId || "").toLowerCase();
+      const productName = String(item.productName || "").toLowerCase();
+      return (batchId && query.includes(batchId)) || (productName && query.includes(productName));
+    })
+    .slice(0, 5);
+
+  return {
+    matchedProducts,
+    matchedTopAnomalies,
+    asksForProcess: /process|workflow|flow|how it works|steps?/.test(query),
+    asksForScans: /scan|verify|verification|qr/.test(query),
+    asksForTransfers: /transfer|ownership|custody|track/.test(query),
+  };
+}
+
 function formatChatbotError(errorText) {
   const message = String(errorText || "");
 
@@ -39,6 +88,7 @@ export async function sendChatMessageToGemini({ messages, userInput }) {
   const history = toGeminiHistory(messages);
   const platformContext = buildPlatformChatContext();
   const platformContextText = buildPlatformChatContextText();
+  const queryContext = buildQueryContext(platformContext, userInput);
 
   const response = await fetch(CHATBOT_API_ENDPOINT, {
     method: "POST",
@@ -48,6 +98,7 @@ export async function sendChatMessageToGemini({ messages, userInput }) {
       userInput,
       platformContext,
       platformContextText,
+      queryContext,
     }),
   });
 

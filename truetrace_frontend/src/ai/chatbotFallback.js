@@ -76,6 +76,59 @@ function summarizeLatestProducts(limit = 5) {
   return `Latest tracked products: ${lines.join("; ")}.`;
 }
 
+function summarizePlatformProcess() {
+  const context = buildPlatformChatContext();
+  const processSteps = context.process?.registerTrackVerify || [];
+  const roleActions = context.process?.roleActions || {};
+
+  const roleLine = Object.entries(roleActions)
+    .map(([role, actions]) => `${role}: ${Array.isArray(actions) ? actions.join(", ") : "-"}`)
+    .join(" | ");
+
+  return [
+    "True Trace process (live platform model):",
+    ...processSteps.map((step, index) => `${index + 1}. ${step}`),
+    roleLine ? `Role actions -> ${roleLine}.` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function summarizeLiveOperations() {
+  const context = buildPlatformChatContext();
+  const recentScans = context.recentScans.slice(0, 6);
+  const recentTransfers = context.recentTransfers.slice(0, 6);
+  const topAnomalies = context.topAnomalies.slice(0, 5);
+
+  const scanLine = recentScans.length
+    ? `Recent scans: ${recentScans.map((scan) => `${scan.batchId}@${scan.location}`).join("; ")}.`
+    : "Recent scans: none recorded.";
+
+  const transferLine = recentTransfers.length
+    ? `Recent transfers: ${recentTransfers.map((t) => `${t.batchId} ${t.from}->${t.to} (${t.location})`).join("; ")}.`
+    : "Recent transfers: none recorded.";
+
+  const anomalyLine = topAnomalies.length
+    ? `Top anomalies: ${topAnomalies.map((item) => `${item.batchId} ${item.threatLevel} (${item.anomalyCount})`).join("; ")}.`
+    : "Top anomalies: none.";
+
+  return `${scanLine} ${transferLine} ${anomalyLine}`;
+}
+
+function summarizeRoleHelp(lower) {
+  const context = buildPlatformChatContext();
+  const roles = context.process?.roleActions || {};
+  const knownRoles = Object.keys(roles);
+  const role = knownRoles.find((item) => lower.includes(item));
+
+  if (!role) {
+    return "You can ask by role: manufacturer, distributor, retailer, consumer, or regulator.";
+  }
+
+  const actions = roles[role] || [];
+  return `${role[0].toUpperCase()}${role.slice(1)} workflow in True Trace: ${actions.join(", ")}.`;
+}
+
 function summarizeProduct(batchId) {
   try {
     const result = analyzeProduct(batchId);
@@ -177,6 +230,14 @@ export function buildFallbackChatReply(userInput, pathname = "") {
     return explainWalletConnect();
   }
 
+  if (lower.includes("process") || lower.includes("workflow") || lower.includes("how it works") || lower.includes("flow") || lower.includes("steps")) {
+    return detailed ? `${summarizePlatformProcess()} ${summarizeLiveOperations()}` : summarizePlatformProcess();
+  }
+
+  if (lower.includes("manufacturer") || lower.includes("distributor") || lower.includes("retailer") || lower.includes("consumer") || lower.includes("regulator")) {
+    return detailed ? `${summarizeRoleHelp(lower)} ${summarizeLiveOperations()}` : summarizeRoleHelp(lower);
+  }
+
   if (productMention && !batchId) {
     return summarizeProductByInput(text, catalog);
   }
@@ -192,7 +253,9 @@ export function buildFallbackChatReply(userInput, pathname = "") {
   }
 
   if (lower.includes("threat") || lower.includes("anomaly") || lower.includes("risk")) {
-    return detailed ? `${explainRules()} ${summarizeGlobalAnalytics()}` : "I can explain the anomaly and threat logic. Ask me something like 'explain anomaly rules' or 'show threat summary'.";
+    return detailed
+      ? `${explainRules()} ${summarizeGlobalAnalytics()} ${summarizeLiveOperations()}`
+      : "I can explain anomaly rules and show current high-risk batches from live platform data. Ask 'show top anomalies'.";
   }
 
   if (lower.includes("product") || lower.includes("batch") || lower.includes("trust")) {
@@ -207,7 +270,13 @@ export function buildFallbackChatReply(userInput, pathname = "") {
   }
 
   if (lower.includes("qr") || lower.includes("scan") || lower.includes("verify")) {
-    return detailed ? summarizeQrGuide() : "I can guide you on QR creation and verification flow. Ask 'explain QR flow' for step-by-step details.";
+    return detailed ? `${summarizeQrGuide()} ${summarizeLiveOperations()}` : "I can guide you on QR creation/verification and recent scan activity. Ask 'explain QR flow' or 'show recent scans'.";
+  }
+
+  if (lower.includes("transfer") || lower.includes("ownership") || lower.includes("custody") || lower.includes("track")) {
+    return detailed
+      ? `Ownership tracking uses transfer events across the chain of custody. ${summarizeLiveOperations()}`
+      : "I can show chain-of-custody activity. Ask 'show recent transfers'.";
   }
 
   if (pathname.includes("analytics") && !detailed) {

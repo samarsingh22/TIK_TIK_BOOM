@@ -53,6 +53,40 @@ function buildRecentScans(limit = 20) {
     }));
 }
 
+function buildTopAnomalies(products, limit = 8) {
+  return products
+    .filter((product) => Number(product.anomalyCount || 0) > 0)
+    .sort((left, right) => {
+      const anomalyDelta = Number(right.anomalyCount || 0) - Number(left.anomalyCount || 0);
+      if (anomalyDelta !== 0) return anomalyDelta;
+      return Number(left.trustScore || 0) - Number(right.trustScore || 0);
+    })
+    .slice(0, limit)
+    .map((product) => ({
+      batchId: product.batchId,
+      productName: product.productName,
+      threatLevel: product.threatLevel,
+      anomalyCount: product.anomalyCount,
+      trustScore: product.trustScore,
+    }));
+}
+
+function buildRecentTransfers(catalog, limit = 12) {
+  return catalog
+    .flatMap((product) =>
+      (Array.isArray(product.transfers) ? product.transfers : []).map((transfer) => ({
+        batchId: product.batchId,
+        productName: product.productName,
+        from: String(transfer.from || "Unknown"),
+        to: String(transfer.to || "Unknown"),
+        location: String(transfer.location || "Unknown"),
+        timestamp: String(transfer.timestamp || ""),
+      })),
+    )
+    .sort((left, right) => toTimestamp(right.timestamp) - toTimestamp(left.timestamp))
+    .slice(0, limit);
+}
+
 export function buildPlatformChatContext() {
   const catalog = getUnifiedProductCatalog();
   const analytics = analyzeAllProducts();
@@ -74,6 +108,22 @@ export function buildPlatformChatContext() {
     },
     products,
     recentScans: buildRecentScans(20),
+    recentTransfers: buildRecentTransfers(catalog, 12),
+    topAnomalies: buildTopAnomalies(products, 8),
+    process: {
+      registerTrackVerify: [
+        "Register: Manufacturer creates on-chain batch with batch metadata.",
+        "Track: Ownership transfers are logged across distributor/retailer steps.",
+        "Verify: QR scan resolves batch and validates current on-chain state.",
+      ],
+      roleActions: {
+        manufacturer: ["register batches", "generate QR", "transfer to distributor", "monitor product intelligence"],
+        distributor: ["receive products", "transfer ownership", "track shipment chain"],
+        retailer: ["verify authenticity", "receive and pass products", "flag suspicious batches"],
+        consumer: ["scan QR", "view history", "check trust score"],
+        regulator: ["review anomalies", "issue recalls", "monitor platform-wide risk"],
+      },
+    },
     qrWorkflow: {
       createQr: [
         "Open Register Batch and create an on-chain batch.",
@@ -101,6 +151,10 @@ export function buildPlatformChatContextText() {
     `Scope: ${context.scope}.`,
     `Analytics: products=${context.analytics.totalProducts}, scans=${context.analytics.totalScans}, anomalies=${context.analytics.totalAnomalies}, trust=${context.analytics.globalTrustScore}.`,
     `Known products: ${productHints || "none"}.`,
+    `Top anomaly batches: ${context.topAnomalies.map((item) => `${item.batchId}:${item.anomalyCount}`).join(", ") || "none"}.`,
+    `Recent transfer count: ${context.recentTransfers.length}.`,
+    `Core process: ${context.process.registerTrackVerify.join(" ")}`,
+    "Role actions: manufacturer registers/transfers, distributor receives/transfers, retailer verifies/flags, consumer scans/verifies, regulator monitors/recalls.",
     "QR creation flow: create batch on Register Batch, wait for tx success, then QR is available for download.",
     "QR verification flow: scan/paste QR payload, resolve BatchID, verify on-chain, then scan telemetry updates analytics.",
   ].join(" ");

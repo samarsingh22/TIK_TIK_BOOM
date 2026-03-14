@@ -16,11 +16,14 @@ function normalizeHistory(messages) {
     : [];
 }
 
-async function callGemini({ apiKey, model, messages, userInput, platformContext, platformContextText }) {
+async function callGemini({ apiKey, model, messages, userInput, platformContext, platformContextText, queryContext }) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
   const safeContext = String(platformContextText || "").trim();
   const serializedContext = platformContext && typeof platformContext === "object"
     ? JSON.stringify(platformContext)
+    : "{}";
+  const serializedQueryContext = queryContext && typeof queryContext === "object"
+    ? JSON.stringify(queryContext)
     : "{}";
 
   const payload = {
@@ -29,6 +32,9 @@ async function callGemini({ apiKey, model, messages, userInput, platformContext,
         {
           text: "You are True Trace AI assistant. Use only True Trace platform data provided in the context and chat history. Do not invent facts, and do not use outside/world knowledge as authoritative data for this app. If requested data is missing from context, clearly say it is not available in current platform data.",
         },
+        {
+          text: "Answer with concrete values from the supplied context (batch IDs, trust scores, threat levels, counts, statuses, steps). Keep the answer platform-specific and avoid generic advice.",
+        },
       ],
     },
     contents: [
@@ -36,7 +42,7 @@ async function callGemini({ apiKey, model, messages, userInput, platformContext,
         role: "user",
         parts: [
           {
-            text: `True Trace platform context:\n${safeContext}\nRaw context JSON:\n${serializedContext}`,
+            text: `True Trace platform context:\n${safeContext}\nQuery grounding hints:\n${serializedQueryContext}\nRaw context JSON:\n${serializedContext}`,
           },
         ],
       },
@@ -84,13 +90,13 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { messages = [], userInput = "", platformContext = null, platformContextText = "" } = req.body || {};
+    const { messages = [], userInput = "", platformContext = null, platformContextText = "", queryContext = null } = req.body || {};
     if (!String(userInput || "").trim()) {
       res.status(400).json({ error: "userInput is required." });
       return;
     }
 
-    const text = await callGemini({ apiKey, model, messages, userInput, platformContext, platformContextText });
+    const text = await callGemini({ apiKey, model, messages, userInput, platformContext, platformContextText, queryContext });
     res.status(200).json({ text });
   } catch (error) {
     res.status(502).json({ error: error?.message || "Gemini request failed." });
