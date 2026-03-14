@@ -274,25 +274,7 @@ function DashboardPage({ initialRole = ROLES.CONSUMER, lockRole = false, bottomC
             </Motion.div>
           )}
 
-          {effectiveRole === ROLES.DISTRIBUTOR && (
-            <Motion.div className="action-card" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-              <div className="card-top">
-                <h3>Receive Batch</h3>
-                <div className="card-icon">
-                  <PackageCheck size={18} />
-                </div>
-              </div>
-              <div className="form-group">
-                <input placeholder="Batch ID" value={form.transferId} onChange={(e) => setField("transferId", e.target.value)} />
-              </div>
-              <div className="card-footer">
-                <button className="card-btn" onClick={verifyBatch} disabled={loading}>
-                  {loading ? "Confirming..." : "Confirm Receipt"} <PackageCheck size={14} />
-                </button>
-              </div>
-            </Motion.div>
-          )}
-
+          
           {(effectiveRole === ROLES.MANUFACTURER || effectiveRole === ROLES.DISTRIBUTOR || effectiveRole === ROLES.RETAILER) && (
             <Motion.div className="action-card" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
               <div className="card-top">
